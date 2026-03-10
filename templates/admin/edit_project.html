@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+{% block title %}Edit — {{ project['title'] }}{% endblock %}
+{% block extra_css %}
+<style>
+.admin-nav{display:flex;gap:.5rem;margin-bottom:2rem;border-bottom:1px solid var(--border);padding-bottom:1rem}
+.admin-nav a{padding:.5rem 1.1rem;border-radius:8px;font-size:.9rem;font-weight:500;color:var(--muted);transition:.2s}
+.admin-nav a:hover,.admin-nav a.active{background:var(--surface2);color:var(--text)}
+.ss-grid{display:flex;flex-wrap:wrap;gap:.8rem;margin-bottom:1rem}
+.ss-item{position:relative;width:120px}
+.ss-item img{width:120px;height:80px;object-fit:cover;border-radius:8px;border:1px solid var(--border)}
+.ss-del{position:absolute;top:4px;right:4px;background:var(--accent2);color:#fff;border:none;border-radius:4px;cursor:pointer;width:22px;height:22px;font-size:.8rem;display:flex;align-items:center;justify-content:center}
+</style>
+{% endblock %}
+{% block content %}
+<div class="container" style="max-width:720px">
+  <h1 class="page-title">Edit Project</h1>
+  <div class="admin-nav">
+    <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('admin_projects') }}" class="active">Projects</a>
+    <a href="{{ url_for('admin_add_project') }}">+ Add Project</a>
+    <a href="{{ url_for('admin_orders') }}">All Orders</a>
+  </div>
+
+  {% if screenshots %}
+  <div style="margin-bottom:1.5rem">
+    <label style="display:block;font-size:.85rem;font-weight:600;color:var(--muted);margin-bottom:.8rem">Current Screenshots</label>
+    <div class="ss-grid">
+      {% for ss in screenshots %}
+      <div class="ss-item" id="ss-{{ ss['id'] }}">
+        <img src="{{ url_for('static', filename='uploads/screenshots/' + ss['filename']) }}">
+        <button class="ss-del" onclick="deleteScreenshot({{ ss['id'] }})">✕</button>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="form-card" style="max-width:100%">
+    <form method="POST" enctype="multipart/form-data">
+      <div class="form-group">
+        <label>Title *</label>
+        <input type="text" name="title" value="{{ project['title'] }}" required>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+        <div class="form-group">
+          <label>Price (₱) *</label>
+          <input type="number" name="price" step="0.01" value="{{ project['price'] }}" required>
+        </div>
+        <div class="form-group">
+          <label>Category</label>
+          <input type="text" name="category" value="{{ project['category'] or '' }}">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Tech Stack</label>
+        <input type="text" name="tech_stack" value="{{ project['tech_stack'] or '' }}">
+      </div>
+      <div class="form-group">
+        <label>Description *</label>
+        <textarea name="description" rows="6" required>{{ project['description'] }}</textarea>
+      </div>
+      <div class="form-group">
+        <label><input type="checkbox" name="is_active" {% if project['is_active'] %}checked{% endif %}> Active (visible to public)</label>
+      </div>
+      <div class="form-group">
+        <label>Replace Project File (leave empty to keep current)</label>
+        <input type="file" name="project_file" accept=".zip,.rar,.py,.tar,.gz">
+      </div>
+      <div class="form-group">
+        <label>Add More Screenshots</label>
+        <input type="file" name="screenshots" accept="image/*" multiple>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">💾 Save Changes</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function deleteScreenshot(id) {
+  if (!confirm('Delete this screenshot?')) return;
+  const res = await fetch(`/admin/screenshot/delete/${id}`);
+  const data = await res.json();
+  if (data.ok) document.getElementById('ss-' + id).remove();
+}
+</script>
+{% endblock %}

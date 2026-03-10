@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block title %}All Orders{% endblock %}
+{% block extra_css %}
+<style>
+.admin-nav{display:flex;gap:.5rem;margin-bottom:2rem;border-bottom:1px solid var(--border);padding-bottom:1rem;flex-wrap:wrap}
+.admin-nav a{padding:.5rem 1.1rem;border-radius:8px;font-size:.9rem;font-weight:500;color:var(--muted);transition:.2s}
+.admin-nav a:hover,.admin-nav a.active{background:var(--surface2);color:var(--text)}
+</style>
+{% endblock %}
+{% block content %}
+<div class="container">
+  <h1 class="page-title">All Orders</h1>
+  <div class="admin-nav">
+    <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('admin_projects') }}">Projects</a>
+    <a href="{{ url_for('admin_add_project') }}">+ Add Project</a>
+    <a href="{{ url_for('admin_orders') }}" class="active">All Orders</a>
+    <a href="{{ url_for('admin_chats') }}">💬 Chats</a>
+  </div>
+  <div class="table-wrap" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden">
+    <table>
+      <thead><tr><th>Ref</th><th>Customer</th><th>Project</th><th>Category</th><th>Amount</th><th>GCash Ref</th><th>Proof</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for o in orders %}
+        <tr>
+          <td><span style="font-family:var(--mono);font-size:.8rem">{{ o['order_ref'] }}</span></td>
+          <td><div style="font-weight:600;font-size:.85rem">{{ o['username'] }}</div><div style="color:var(--muted);font-size:.78rem">{{ o['email'] }}</div></td>
+          <td style="font-size:.85rem;max-width:160px">{{ o['title'] }}</td>
+          <td>{% if o['category'] %}<span class="badge badge-cat">{{ o['category'] }}</span>{% else %}—{% endif %}</td>
+          <td style="font-weight:700;color:var(--accent)">₱{{ "%.2f"|format(o['amount']) }}</td>
+          <td style="font-family:var(--mono);font-size:.8rem">{{ o['gcash_ref'] or '—' }}</td>
+          <td>{% if o['payment_screenshot'] %}<a href="{{ url_for('view_payment_proof', filename=o['payment_screenshot']) }}" target="_blank" class="btn btn-outline btn-sm">View</a>{% else %}—{% endif %}</td>
+          <td>
+            {% if o['status'] == 'approved' %}<span class="badge badge-green">Approved</span>
+            {% elif o['status'] == 'pending' %}<span class="badge badge-yellow">Pending</span>
+            {% else %}<span class="badge badge-red">Rejected</span>{% endif %}
+          </td>
+          <td style="color:var(--muted);font-size:.78rem">{{ o['created_at'][:16] }}</td>
+          <td style="display:flex;gap:.4rem;flex-wrap:wrap">
+            {% if o['status'] == 'pending' %}
+              <a href="{{ url_for('approve_order', oid=o['id']) }}" class="btn btn-success btn-sm">✅</a>
+              <a href="{{ url_for('reject_order', oid=o['id']) }}" class="btn btn-danger btn-sm">❌</a>
+            {% elif o['status'] == 'approved' %}
+              <a href="{{ url_for('reject_order', oid=o['id']) }}" class="btn btn-outline btn-sm">Revoke</a>
+            {% else %}
+              <a href="{{ url_for('approve_order', oid=o['id']) }}" class="btn btn-outline btn-sm">Re-approve</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

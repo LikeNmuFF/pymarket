@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}Customer Chats{% endblock %}
+{% block extra_css %}
+<style>
+.admin-nav{display:flex;gap:.5rem;margin-bottom:2rem;border-bottom:1px solid var(--border);padding-bottom:1rem;flex-wrap:wrap}
+.admin-nav a{padding:.5rem 1.1rem;border-radius:8px;font-size:.9rem;font-weight:500;color:var(--muted);transition:.2s}
+.admin-nav a:hover,.admin-nav a.active{background:var(--surface2);color:var(--text)}
+.conv-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.2rem;display:flex;align-items:center;gap:1rem;transition:.2s;cursor:pointer}
+.conv-card:hover{border-color:var(--accent)}
+.conv-avatar{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:1.2rem;font-weight:700;color:#fff;flex-shrink:0}
+</style>
+{% endblock %}
+{% block content %}
+<div class="container">
+  <h1 class="page-title">Customer Chats</h1>
+  <div class="admin-nav">
+    <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('admin_projects') }}">Projects</a>
+    <a href="{{ url_for('admin_orders') }}">Orders</a>
+    <a href="{{ url_for('admin_chats') }}" class="active">💬 Chats</a>
+  </div>
+
+  {% if conversations %}
+  <div style="display:flex;flex-direction:column;gap:.8rem">
+    {% for c in conversations %}
+    <a href="{{ url_for('admin_chat_user', user_id=c['id']) }}" class="conv-card">
+      <div class="conv-avatar">{{ c['username'][0].upper() }}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:.6rem">
+          <span style="font-weight:700">{{ c['username'] }}</span>
+          <span style="color:var(--muted);font-size:.8rem">{{ c['email'] }}</span>
+          {% if c['unread'] > 0 %}<span class="notif-dot">{{ c['unread'] }}</span>{% endif %}
+        </div>
+        <div style="color:var(--muted);font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:400px;margin-top:.2rem">{{ c['last_text'] or '—' }}</div>
+      </div>
+      <div style="color:var(--muted);font-size:.78rem;flex-shrink:0">{{ c['last_message'][11:16] if c['last_message'] }}</div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty">
+    <div class="empty-icon">💬</div>
+    <div>No customer messages yet.</div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

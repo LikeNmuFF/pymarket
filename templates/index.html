@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% block title %}Browse Python Projects{% endblock %}
+{% block extra_css %}
+<style>
+.hero{padding:4rem 2rem 3rem;text-align:center;background:radial-gradient(ellipse at 50% 0%,rgba(108,99,255,.12) 0%,transparent 70%)}
+.hero h1{font-family:'Syne',sans-serif;font-size:clamp(2rem,5vw,3.5rem);font-weight:800;line-height:1.1;margin-bottom:1rem}
+.hero h1 span{background:linear-gradient(135deg,#6c63ff,#ff6584);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero p{color:var(--muted);font-size:1.1rem;max-width:500px;margin:0 auto 2rem}
+.search-bar{display:flex;gap:.6rem;max-width:540px;margin:0 auto}
+.search-bar input{flex:1}
+.cat-pill{padding:.35rem .9rem;border-radius:99px;border:1px solid var(--border);font-size:.82rem;font-weight:500;cursor:pointer;transition:.2s;color:var(--muted)}
+.cat-pill:hover,.cat-pill.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.filter-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:1.5rem}
+.filter-row span{color:var(--muted);font-size:.85rem;font-weight:500}
+</style>
+{% endblock %}
+{% block content %}
+<div class="hero">
+  <h1>Premium <span>Python Projects</span><br>Ready to Deploy</h1>
+  <p>Professionally built Flask, Django, and Python apps — buy, download, own forever.</p>
+  <form method="GET" action="{{ url_for('index') }}" class="search-bar">
+    <input type="text" name="q" placeholder="🔍  Search projects..." value="{{ search }}">
+    {% if selected_cat %}<input type="hidden" name="cat" value="{{ selected_cat }}">{% endif %}
+    <button type="submit" class="btn btn-primary">Search</button>
+  </form>
+</div>
+
+<div class="container">
+  {% if categories %}
+  <div class="filter-row">
+    <span>Filter:</span>
+    <a href="{{ url_for('index', q=search) }}" class="cat-pill {% if not selected_cat %}active{% endif %}">All</a>
+    {% for cat in categories %}
+      <a href="{{ url_for('index', q=search, cat=cat['category']) }}" class="cat-pill {% if selected_cat == cat['category'] %}active{% endif %}">{{ cat['category'] }}</a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if projects %}
+  <div class="grid">
+    {% for p in projects %}
+    {% set sold_out = p['is_sold_out'] and p['is_sold_out'] >= 1 %}
+    <div class="card" onclick="requireLogin('{{ url_for('project_detail', pid=p['id']) }}')">
+      {% if p['thumb'] %}
+        <img class="card-img" src="{{ url_for('static', filename='uploads/screenshots/' + p['thumb']) }}" alt="{{ p['title'] }}" {% if sold_out %}style="opacity:.6;filter:grayscale(.4)"{% endif %}>
+      {% else %}
+        <div class="card-img-placeholder" {% if sold_out %}style="opacity:.5"{% endif %}>🐍</div>
+      {% endif %}
+      <div class="card-body">
+        <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem">
+          <div class="card-title" style="margin:0">{{ p['title'] }}</div>
+          {% if p['category'] %}<span class="badge badge-cat">{{ p['category'] }}</span>{% endif %}
+          {% if sold_out %}<span class="badge badge-red">Sold Out</span>{% endif %}
+        </div>
+        <div class="card-desc">{{ p['description'] }}</div>
+        {% if p['tech_stack'] %}
+        <div style="margin-top:.7rem;display:flex;flex-wrap:wrap;gap:.4rem">
+          {% for tech in p['tech_stack'].split(',') %}<span class="badge badge-tech">{{ tech.strip() }}</span>{% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      {% if p['buyer_count'] and p['buyer_count'] > 0 %}
+      <div class="card-buyers">🛒 Bought by <strong>{{ p['buyer_names'] }}</strong></div>
+      {% endif %}
+      {% if sold_out %}
+      <div class="card-sold-out">🔒 This project has been purchased and is no longer for sale</div>
+      {% endif %}
+      <div class="card-footer">
+        <div>
+          <span class="price {% if sold_out %}price-crossed{% endif %}">₱{{ "%.2f"|format(p['price']) }}</span>
+          <span style="font-size:.75rem;color:var(--muted);margin-left:.3rem">+10% VAT</span>
+        </div>
+        {% if sold_out %}
+          <span class="badge badge-red">Unavailable</span>
+        {% else %}
+          <span class="badge badge-green">Available</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty"><div class="empty-icon">🔍</div><div>No projects found{% if search %} for "{{ search }}"{% endif %}.</div></div>
+  {% endif %}
+</div>
+{% endblock %}

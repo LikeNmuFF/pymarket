@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+{% block title %}{{ project['title'] }}{% endblock %}
+{% block extra_css %}
+<style>
+.detail-layout{display:grid;grid-template-columns:1fr 340px;gap:2rem;align-items:start}
+@media(max-width:768px){.detail-layout{grid-template-columns:1fr}}
+.screenshots img{width:100%;border-radius:10px;border:1px solid var(--border);margin-bottom:.8rem}
+.sticky-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:1.8rem;position:sticky;top:80px}
+.big-price{font-family:'Syne',sans-serif;font-size:2.2rem;font-weight:800;color:var(--accent)}
+.feature-list{list-style:none;margin:1.2rem 0}
+.feature-list li{padding:.5rem 0;border-bottom:1px solid var(--border);font-size:.9rem;color:var(--muted);display:flex;align-items:center;gap:.6rem}
+.feature-list li:last-child{border:none}
+.buyers-section{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:1rem;margin-top:1.5rem}
+.buyer-row{display:flex;align-items:center;gap:.6rem;padding:.4rem 0;border-bottom:1px solid var(--border);font-size:.88rem}
+.buyer-row:last-child{border:none}
+.buyer-avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;color:#fff;flex-shrink:0}
+.sold-out-banner{background:rgba(255,101,132,.1);border:1px solid rgba(255,101,132,.25);border-radius:12px;padding:1rem 1.2rem;margin-bottom:1rem;text-align:center;color:var(--accent2);font-weight:600}
+</style>
+{% endblock %}
+{% block content %}
+<div class="container">
+  <a href="{{ url_for('index') }}" style="color:var(--muted);font-size:.9rem;display:inline-flex;align-items:center;gap:.4rem;margin-bottom:1.5rem">← Back to Browse</a>
+  <div class="detail-layout">
+    <div>
+      <div class="screenshots">
+        {% for ss in screenshots %}
+          <img src="{{ url_for('static', filename='uploads/screenshots/' + ss['filename']) }}" alt="Screenshot" {% if sold_out and not user_bought %}style="opacity:.7;filter:grayscale(.3)"{% endif %}>
+        {% else %}
+          <div style="background:var(--surface2);border-radius:10px;height:300px;display:flex;align-items:center;justify-content:center;font-size:5rem">🐍</div>
+        {% endfor %}
+      </div>
+      <div style="display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;margin-bottom:.8rem">
+        <h1 style="font-family:'Syne',sans-serif;font-size:1.8rem;font-weight:800">{{ project['title'] }}</h1>
+        {% if project['category'] %}<span class="badge badge-cat">{{ project['category'] }}</span>{% endif %}
+        {% if sold_out %}<span class="badge badge-red">Sold Out</span>{% endif %}
+      </div>
+      {% if project['tech_stack'] %}
+      <div style="display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1rem">
+        {% for tech in project['tech_stack'].split(',') %}<span class="badge badge-tech">{{ tech.strip() }}</span>{% endfor %}
+      </div>
+      {% endif %}
+      {% if buyers %}
+      <div class="buyers-section">
+        <div style="font-size:.8rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.6rem">🛒 Purchased by {{ buyers|length }} customer{{ 's' if buyers|length > 1 }}</div>
+        {% for b in buyers %}
+        <div class="buyer-row">
+          <div class="buyer-avatar">{{ b['username'][0].upper() }}</div>
+          <span style="font-weight:600">{{ b['username'] }}</span>
+          <span style="color:var(--muted);margin-left:auto;font-size:.78rem">{{ b['approved_at'][:10] if b['approved_at'] }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      <hr class="divider">
+      <h3 style="margin-bottom:.8rem;font-size:.9rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)">About this project</h3>
+      <div style="color:var(--muted);line-height:1.8;white-space:pre-wrap">{{ project['description'] }}</div>
+    </div>
+
+    <div>
+      <div class="sticky-box">
+        <div class="big-price {% if sold_out and not user_bought %}price-crossed{% endif %}">₱{{ "%.2f"|format(project['price']) }}</div>
+        <div class="vat-breakdown" style="margin-bottom:1rem">
+          <div class="vat-row"><span>Base price</span><span>₱{{ "%.2f"|format(project['price']) }}</span></div>
+          <div class="vat-row"><span>VAT (10%)</span><span>₱{{ "%.2f"|format(vat_amount) }}</span></div>
+          <div class="vat-row total"><span>Total</span><span>₱{{ "%.2f"|format(total_price) }}</span></div>
+        </div>
+
+        {% if user_bought %}
+          <div style="background:rgba(0,194,122,.1);border:1px solid rgba(0,194,122,.28);border-radius:10px;padding:1rem;margin-bottom:1rem;text-align:center;color:var(--green);font-weight:600">✅ You own this project</div>
+          <a href="{{ url_for('my_orders') }}" class="btn btn-success" style="width:100%;justify-content:center;margin-bottom:.6rem">📦 My Orders</a>
+          {% if user_order %}
+          <a href="{{ url_for('chat_order', order_id=user_order['id']) }}" class="btn btn-outline" style="width:100%;justify-content:center">💬 Chat about this order</a>
+          {% endif %}
+        {% elif session.get('is_admin') %}
+          <div style="background:rgba(230,184,0,.1);border:1px solid rgba(230,184,0,.25);border-radius:10px;padding:1rem;text-align:center;color:var(--yellow);font-weight:600">👑 You are the admin</div>
+        {% elif sold_out %}
+          <div class="sold-out-banner">🔒 Already purchased — not for sale</div>
+          <button class="btn btn-outline" style="width:100%;justify-content:center;opacity:.5" disabled>Sold Out</button>
+          <a href="#" onclick="requireLogin('{{ url_for('chat_general') }}')" class="btn btn-outline" style="width:100%;justify-content:center;margin-top:.6rem">💬 Ask Admin</a>
+        {% else %}
+          <a href="#" onclick="requireLogin('{{ url_for('buy', pid=project['id']) }}')" class="btn btn-primary" style="width:100%;justify-content:center;margin-bottom:.8rem">💳 Buy via GCash</a>
+          <a href="#" onclick="requireLogin('{{ url_for('chat_general') }}')" class="btn btn-outline" style="width:100%;justify-content:center">💬 Ask a question</a>
+        {% endif %}
+
+        <ul class="feature-list">
+          <li>🔒 Secure GCash Payment</li>
+          <li>⬇️ Download after approval</li>
+          <li>💻 Full source code included</li>
+          <li>♾️ Lifetime access</li>
+          <li>👤 Sold to one buyer only</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

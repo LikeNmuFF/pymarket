@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="container" style="max-width:720px">
+  <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap">
+    <a href="{{ url_for('my_orders') }}" style="color:var(--muted);font-size:.9rem">← My Orders</a>
+    <span style="color:var(--border)">|</span>
+    <a href="{{ url_for('chat_general') }}" style="color:var(--muted);font-size:.9rem;{% if not order %}color:var(--accent){% endif %}">💬 General Support</a>
+  </div>
+
+  <h1 class="page-title" style="font-size:1.5rem">{{ title }}</h1>
+  {% if order %}
+    <div style="margin-bottom:1.5rem">
+      <span class="badge badge-cat">{{ order['project_title'] }}</span>
+      <span class="badge badge-tech" style="margin-left:.4rem">Order #{{ order['order_ref'] }}</span>
+    </div>
+  {% else %}
+    <p class="page-sub">Ask us anything — we'll reply as soon as possible.</p>
+  {% endif %}
+
+  <div class="chat-wrap" id="chatWrap">
+    {% if not messages %}
+      <div style="text-align:center;color:var(--muted);padding:2rem;font-size:.9rem">No messages yet. Say hello! 👋</div>
+    {% endif %}
+    {% for m in messages %}
+      {% if m['is_admin_reply'] %}
+        <div class="chat-msg theirs">
+          <div class="chat-bubble">{{ m['message'] }}</div>
+          <div class="chat-meta">👑 Admin · {{ m['created_at'][11:16] }}</div>
+        </div>
+      {% else %}
+        <div class="chat-msg mine">
+          <div class="chat-bubble">{{ m['message'] }}</div>
+          <div class="chat-meta">You · {{ m['created_at'][11:16] }}</div>
+        </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  <form method="POST" style="margin-top:1rem">
+    <div class="chat-input-row">
+      <input type="text" name="message" placeholder="Type your message..." autocomplete="off" required>
+      <button type="submit" class="btn btn-primary">Send</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const wrap = document.getElementById('chatWrap');
+if(wrap) wrap.scrollTop = wrap.scrollHeight;
+</script>
+{% endblock %}

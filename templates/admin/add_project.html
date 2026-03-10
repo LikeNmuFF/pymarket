@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block title %}Add Project{% endblock %}
+{% block extra_css %}
+<style>
+.admin-nav{display:flex;gap:.5rem;margin-bottom:2rem;border-bottom:1px solid var(--border);padding-bottom:1rem}
+.admin-nav a{padding:.5rem 1.1rem;border-radius:8px;font-size:.9rem;font-weight:500;color:var(--muted);transition:.2s}
+.admin-nav a:hover,.admin-nav a.active{background:var(--surface2);color:var(--text)}
+</style>
+{% endblock %}
+{% block content %}
+<div class="container" style="max-width:720px">
+  <h1 class="page-title">Add New Project</h1>
+  <div class="admin-nav">
+    <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('admin_projects') }}">Projects</a>
+    <a href="{{ url_for('admin_add_project') }}" class="active">+ Add Project</a>
+    <a href="{{ url_for('admin_orders') }}">All Orders</a>
+  </div>
+
+  <div class="form-card" style="max-width:100%">
+    <form method="POST" enctype="multipart/form-data">
+      <div class="form-group">
+        <label>Project Title *</label>
+        <input type="text" name="title" placeholder="e.g. Flask E-Commerce Store" required>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+        <div class="form-group">
+          <label>Price (₱) *</label>
+          <input type="number" name="price" step="0.01" min="0" placeholder="299.00" required>
+        </div>
+        <div class="form-group">
+          <label>Category</label>
+          <input type="text" name="category" placeholder="e.g. E-Commerce, Blog, API">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Tech Stack (comma-separated)</label>
+        <input type="text" name="tech_stack" placeholder="e.g. Flask, SQLite, Bootstrap">
+      </div>
+      <div class="form-group">
+        <label>Description *</label>
+        <textarea name="description" rows="6" placeholder="Describe your project in detail..." required></textarea>
+      </div>
+      <div class="form-group">
+        <label>Project File (zip/py) *</label>
+        <input type="file" name="project_file" accept=".zip,.rar,.py,.tar,.gz" required>
+      </div>
+      <div class="form-group">
+        <label>Screenshots (multiple allowed)</label>
+        <input type="file" name="screenshots" accept="image/*" multiple>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">🚀 Publish Project</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

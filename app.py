@@ -1,0 +1,541 @@
+from flask import Flask, render_template, request, redirect, url_for, session, flash, send_from_directory, jsonify
+from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
+import sqlite3, os, uuid
+from datetime import datetime
+from functools import wraps
+
+app = Flask(__name__)
+app.secret_key = 'your-secret-key-change-this-in-production'
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, 'market.db')
+
+UPLOAD_SCREENSHOTS = os.path.join(BASE_DIR, 'static', 'uploads', 'screenshots')
+UPLOAD_PROJECTS    = os.path.join(BASE_DIR, 'static', 'uploads', 'projects')
+UPLOAD_PAYMENTS    = os.path.join(BASE_DIR, 'static', 'uploads', 'payments')
+
+for folder in [UPLOAD_SCREENSHOTS, UPLOAD_PROJECTS, UPLOAD_PAYMENTS]:
+    os.makedirs(folder, exist_ok=True)
+
+ALLOWED_IMG     = {'png','jpg','jpeg','gif','webp'}
+ALLOWED_PROJECT = {'zip','rar','tar','gz','py'}
+VAT_RATE = 0.10  # 10% VAT
+
+def get_db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_db():
+    with get_db() as db:
+        db.executescript('''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                email TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL,
+                is_admin INTEGER DEFAULT 0,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE TABLE IF NOT EXISTS projects (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                description TEXT NOT NULL,
+                price REAL NOT NULL,
+                tech_stack TEXT,
+                category TEXT,
+                file_path TEXT,
+                is_active INTEGER DEFAULT 1,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE TABLE IF NOT EXISTS screenshots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER NOT NULL,
+                filename TEXT NOT NULL,
+                FOREIGN KEY(project_id) REFERENCES projects(id)
+            );
+            CREATE TABLE IF NOT EXISTS orders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                order_ref TEXT UNIQUE NOT NULL,
+                user_id INTEGER NOT NULL,
+                project_id INTEGER NOT NULL,
+                amount REAL NOT NULL,
+                status TEXT DEFAULT "pending",
+                gcash_ref TEXT,
+                payment_screenshot TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                approved_at TEXT,
+                FOREIGN KEY(user_id) REFERENCES users(id),
+                FOREIGN KEY(project_id) REFERENCES projects(id)
+            );
+            CREATE TABLE IF NOT EXISTS chats (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                order_id INTEGER,
+                is_admin_reply INTEGER DEFAULT 0,
+                message TEXT NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(user_id) REFERENCES users(id),
+                FOREIGN KEY(order_id) REFERENCES orders(id)
+            );
+        ''')
+        try:
+            db.execute("INSERT INTO users (username,email,password,is_admin) VALUES (?,?,?,1)",
+                ('admin','admin@pymarket.com', generate_password_hash('admin123')))
+            db.commit()
+        except:
+            pass
+
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('login_required')
+            return redirect(url_for('login', next=request.url))
+        return f(*args, **kwargs)
+    return decorated
+
+def admin_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get('is_admin'):
+            return redirect(url_for('index'))
+        return f(*args, **kwargs)
+    return decorated
+
+def allowed_file(filename, allowed):
+    return '.' in filename and filename.rsplit('.',1)[1].lower() in allowed
+
+@app.route('/')
+def index():
+    db = get_db()
+    search   = request.args.get('q','')
+    category = request.args.get('cat','')
+    query = """
+        SELECT p.*,
+            (SELECT filename FROM screenshots WHERE project_id=p.id LIMIT 1) as thumb,
+            (SELECT COUNT(*) FROM orders o WHERE o.project_id=p.id AND o.status='approved') as buyer_count,
+            (SELECT GROUP_CONCAT(u.username, ', ')
+             FROM orders o JOIN users u ON o.user_id=u.id
+             WHERE o.project_id=p.id AND o.status='approved') as buyer_names,
+            (SELECT COUNT(*) FROM orders o WHERE o.project_id=p.id AND o.status='approved') as is_sold_out
+        FROM projects p WHERE p.is_active=1
+    """
+    params = []
+    if search:
+        query += " AND (p.title LIKE ? OR p.description LIKE ? OR p.tech_stack LIKE ?)"
+        params += [f'%{search}%']*3
+    if category:
+        query += " AND p.category=?"
+        params.append(category)
+    query += " ORDER BY p.created_at DESC"
+    projects   = db.execute(query, params).fetchall()
+    categories = db.execute("SELECT DISTINCT category FROM projects WHERE is_active=1 AND category IS NOT NULL").fetchall()
+    return render_template('index.html', projects=projects, categories=categories, search=search, selected_cat=category)
+
+@app.route('/project/<int:pid>')
+def project_detail(pid):
+    db = get_db()
+    project = db.execute("SELECT * FROM projects WHERE id=? AND is_active=1", (pid,)).fetchone()
+    if not project:
+        return redirect(url_for('index'))
+    screenshots = db.execute("SELECT * FROM screenshots WHERE project_id=?", (pid,)).fetchall()
+    buyers = db.execute("""
+        SELECT u.username, o.approved_at FROM orders o
+        JOIN users u ON o.user_id=u.id
+        WHERE o.project_id=? AND o.status='approved'
+        ORDER BY o.approved_at DESC
+    """, (pid,)).fetchall()
+    user_bought = False
+    user_order  = None
+    if session.get('user_id'):
+        user_order = db.execute(
+            "SELECT * FROM orders WHERE user_id=? AND project_id=? AND status='approved'",
+            (session['user_id'], pid)).fetchone()
+        user_bought = user_order is not None
+    sold_out = len(buyers) >= 1
+    base_price = project['price']
+    vat_amount = round(base_price * VAT_RATE, 2)
+    total_price = round(base_price + vat_amount, 2)
+    return render_template('project_detail.html', project=project,
+                           screenshots=screenshots, buyers=buyers,
+                           user_bought=user_bought, user_order=user_order,
+                           sold_out=sold_out, vat_amount=vat_amount, total_price=total_price)
+
+@app.route('/register', methods=['GET','POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form['username'].strip()
+        email    = request.form['email'].strip()
+        password = request.form['password']
+        db = get_db()
+        try:
+            db.execute("INSERT INTO users (username,email,password) VALUES (?,?,?)",
+                (username, email, generate_password_hash(password)))
+            db.commit()
+            flash('Account created! Please log in.', 'success')
+            return redirect(url_for('login'))
+        except sqlite3.IntegrityError:
+            flash('Username or email already exists.', 'error')
+    return render_template('register.html')
+
+@app.route('/login', methods=['GET','POST'])
+def login():
+    next_url = request.args.get('next', url_for('index'))
+    if request.method == 'POST':
+        email    = request.form['email'].strip()
+        password = request.form['password']
+        db = get_db()
+        user = db.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
+        if user and check_password_hash(user['password'], password):
+            session['user_id']  = user['id']
+            session['username'] = user['username']
+            session['is_admin'] = bool(user['is_admin'])
+            return redirect(next_url)
+        flash('Invalid credentials.', 'error')
+    return render_template('login.html', next=next_url)
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('index'))
+
+@app.route('/buy/<int:pid>', methods=['GET','POST'])
+@login_required
+def buy(pid):
+    if session.get('is_admin'):
+        flash('Admins cannot purchase projects.', 'error')
+        return redirect(url_for('project_detail', pid=pid))
+    db = get_db()
+    project = db.execute("SELECT * FROM projects WHERE id=? AND is_active=1", (pid,)).fetchone()
+    if not project:
+        return redirect(url_for('index'))
+    # Check if already sold out (someone else owns it)
+    owner = db.execute(
+        "SELECT o.*, u.username FROM orders o JOIN users u ON o.user_id=u.id WHERE o.project_id=? AND o.status='approved'",
+        (pid,)).fetchone()
+    if owner:
+        flash(f'Sorry, this project was already purchased by {owner["username"]}.', 'error')
+        return redirect(url_for('project_detail', pid=pid))
+    existing = db.execute(
+        "SELECT * FROM orders WHERE user_id=? AND project_id=? AND status IN ('pending','approved')",
+        (session['user_id'], pid)).fetchone()
+    if existing and existing['status'] == 'approved':
+        return redirect(url_for('my_orders'))
+    base_price  = project['price']
+    vat_amount  = round(base_price * VAT_RATE, 2)
+    total_price = round(base_price + vat_amount, 2)
+    if request.method == 'POST':
+        gcash_ref  = request.form.get('gcash_ref','').strip()
+        payment_ss = None
+        if 'payment_screenshot' in request.files:
+            f = request.files['payment_screenshot']
+            if f and allowed_file(f.filename, ALLOWED_IMG):
+                fn = secure_filename(f'{uuid.uuid4()}_{f.filename}')
+                f.save(os.path.join(UPLOAD_PAYMENTS, fn))
+                payment_ss = fn
+        order_ref = str(uuid.uuid4())[:8].upper()
+        db.execute(
+            "INSERT INTO orders (order_ref,user_id,project_id,amount,gcash_ref,payment_screenshot) VALUES (?,?,?,?,?,?)",
+            (order_ref, session['user_id'], pid, total_price, gcash_ref, payment_ss))
+        db.commit()
+        flash(f'Payment submitted! Order ref: {order_ref}. Admin will verify shortly.', 'success')
+        return redirect(url_for('my_orders'))
+    return render_template('buy.html', project=project, existing=existing,
+                           base_price=base_price, vat_amount=vat_amount, total_price=total_price)
+
+@app.route('/my-orders')
+@login_required
+def my_orders():
+    db = get_db()
+    orders = db.execute('''
+        SELECT o.*, p.title, p.price, p.category FROM orders o
+        JOIN projects p ON o.project_id=p.id
+        WHERE o.user_id=? ORDER BY o.created_at DESC
+    ''', (session['user_id'],)).fetchall()
+    return render_template('my_orders.html', orders=orders)
+
+@app.route('/download/<int:order_id>')
+@login_required
+def download_project(order_id):
+    db = get_db()
+    order = db.execute("SELECT * FROM orders WHERE id=? AND user_id=? AND status='approved'",
+        (order_id, session['user_id'])).fetchone()
+    if not order:
+        flash('Access denied.', 'error')
+        return redirect(url_for('my_orders'))
+    project = db.execute("SELECT * FROM projects WHERE id=?", (order['project_id'],)).fetchone()
+    return send_from_directory(UPLOAD_PROJECTS, project['file_path'], as_attachment=True)
+
+@app.route('/view-source/<int:order_id>')
+@login_required
+def view_source(order_id):
+    db = get_db()
+    order = db.execute("SELECT * FROM orders WHERE id=? AND user_id=? AND status='approved'",
+        (order_id, session['user_id'])).fetchone()
+    if not order:
+        flash('Access denied.', 'error')
+        return redirect(url_for('my_orders'))
+    project = db.execute("SELECT * FROM projects WHERE id=?", (order['project_id'],)).fetchone()
+    source_content = None
+    if project['file_path'] and project['file_path'].endswith('.py'):
+        filepath = os.path.join(UPLOAD_PROJECTS, project['file_path'])
+        with open(filepath, 'r', errors='replace') as f:
+            source_content = f.read()
+    return render_template('view_source.html', project=project, source=source_content, order_id=order_id)
+
+# ─── Chat ──────────────────────────────────────────────────────────────────────
+
+@app.route('/chat', methods=['GET','POST'])
+@login_required
+def chat_general():
+    db = get_db()
+    if request.method == 'POST':
+        msg = request.form.get('message','').strip()
+        if msg:
+            db.execute("INSERT INTO chats (user_id, order_id, is_admin_reply, message) VALUES (?,NULL,0,?)",
+                (session['user_id'], msg))
+            db.commit()
+        return redirect(url_for('chat_general'))
+    messages = db.execute("""
+        SELECT c.*, u.username FROM chats c
+        JOIN users u ON c.user_id=u.id
+        WHERE c.order_id IS NULL AND c.user_id=?
+        ORDER BY c.created_at ASC
+    """, (session['user_id'],)).fetchall()
+    return render_template('chat.html', messages=messages, order=None, title='General Support')
+
+@app.route('/chat/order/<int:order_id>', methods=['GET','POST'])
+@login_required
+def chat_order(order_id):
+    db = get_db()
+    order = db.execute("""
+        SELECT o.*, p.title as project_title FROM orders o
+        JOIN projects p ON o.project_id=p.id
+        WHERE o.id=? AND o.user_id=?
+    """, (order_id, session['user_id'])).fetchone()
+    if not order:
+        flash('Order not found.', 'error')
+        return redirect(url_for('my_orders'))
+    if request.method == 'POST':
+        msg = request.form.get('message','').strip()
+        if msg:
+            db.execute("INSERT INTO chats (user_id, order_id, is_admin_reply, message) VALUES (?,?,0,?)",
+                (session['user_id'], order_id, msg))
+            db.commit()
+        return redirect(url_for('chat_order', order_id=order_id))
+    messages = db.execute("""
+        SELECT c.*, u.username FROM chats c
+        JOIN users u ON c.user_id=u.id
+        WHERE c.order_id=? ORDER BY c.created_at ASC
+    """, (order_id,)).fetchall()
+    return render_template('chat.html', messages=messages, order=order,
+                           title=f'Order #{order["order_ref"]} — {order["project_title"]}')
+
+# ─── Admin ─────────────────────────────────────────────────────────────────────
+
+@app.route('/admin')
+@login_required
+@admin_required
+def admin_dashboard():
+    db = get_db()
+    stats = {
+        'projects':     db.execute("SELECT COUNT(*) as c FROM projects").fetchone()['c'],
+        'users':        db.execute("SELECT COUNT(*) as c FROM users WHERE is_admin=0").fetchone()['c'],
+        'pending':      db.execute("SELECT COUNT(*) as c FROM orders WHERE status='pending'").fetchone()['c'],
+        'revenue':      db.execute("SELECT COALESCE(SUM(amount),0) as s FROM orders WHERE status='approved'").fetchone()['s'],
+        'unread_chats': db.execute("SELECT COUNT(DISTINCT user_id) as c FROM chats WHERE is_admin_reply=0").fetchone()['c'],
+    }
+    pending_orders = db.execute('''
+        SELECT o.*, u.username, u.email, p.title, p.category FROM orders o
+        JOIN users u ON o.user_id=u.id
+        JOIN projects p ON o.project_id=p.id
+        WHERE o.status='pending' ORDER BY o.created_at DESC
+    ''').fetchall()
+    return render_template('admin/dashboard.html', stats=stats, pending_orders=pending_orders)
+
+@app.route('/admin/projects')
+@login_required
+@admin_required
+def admin_projects():
+    db = get_db()
+    projects = db.execute('''
+        SELECT p.*,
+            COUNT(DISTINCT o.id) as sales,
+            GROUP_CONCAT(DISTINCT u.username) as buyer_names
+        FROM projects p
+        LEFT JOIN orders o ON p.id=o.project_id AND o.status='approved'
+        LEFT JOIN users u ON o.user_id=u.id
+        GROUP BY p.id ORDER BY p.created_at DESC
+    ''').fetchall()
+    return render_template('admin/projects.html', projects=projects)
+
+@app.route('/admin/project/add', methods=['GET','POST'])
+@login_required
+@admin_required
+def admin_add_project():
+    if request.method == 'POST':
+        title       = request.form['title']
+        description = request.form['description']
+        price       = float(request.form['price'])
+        tech_stack  = request.form.get('tech_stack','')
+        category    = request.form.get('category','')
+        file_path   = None
+        if 'project_file' in request.files:
+            f = request.files['project_file']
+            if f and allowed_file(f.filename, ALLOWED_PROJECT):
+                fn = secure_filename(f'{uuid.uuid4()}_{f.filename}')
+                f.save(os.path.join(UPLOAD_PROJECTS, fn))
+                file_path = fn
+        db = get_db()
+        cur = db.execute("INSERT INTO projects (title,description,price,tech_stack,category,file_path) VALUES (?,?,?,?,?,?)",
+            (title, description, price, tech_stack, category, file_path))
+        pid = cur.lastrowid
+        for ss in request.files.getlist('screenshots'):
+            if ss and allowed_file(ss.filename, ALLOWED_IMG):
+                fn = secure_filename(f'{uuid.uuid4()}_{ss.filename}')
+                ss.save(os.path.join(UPLOAD_SCREENSHOTS, fn))
+                db.execute("INSERT INTO screenshots (project_id,filename) VALUES (?,?)", (pid, fn))
+        db.commit()
+        flash('Project added!', 'success')
+        return redirect(url_for('admin_projects'))
+    return render_template('admin/add_project.html')
+
+@app.route('/admin/project/edit/<int:pid>', methods=['GET','POST'])
+@login_required
+@admin_required
+def admin_edit_project(pid):
+    db = get_db()
+    project     = db.execute("SELECT * FROM projects WHERE id=?", (pid,)).fetchone()
+    screenshots = db.execute("SELECT * FROM screenshots WHERE project_id=?", (pid,)).fetchall()
+    if request.method == 'POST':
+        title      = request.form['title']
+        description= request.form['description']
+        price      = float(request.form['price'])
+        tech_stack = request.form.get('tech_stack','')
+        category   = request.form.get('category','')
+        is_active  = 1 if request.form.get('is_active') else 0
+        db.execute("UPDATE projects SET title=?,description=?,price=?,tech_stack=?,category=?,is_active=? WHERE id=?",
+            (title,description,price,tech_stack,category,is_active,pid))
+        if 'project_file' in request.files:
+            f = request.files['project_file']
+            if f and f.filename and allowed_file(f.filename, ALLOWED_PROJECT):
+                fn = secure_filename(f'{uuid.uuid4()}_{f.filename}')
+                f.save(os.path.join(UPLOAD_PROJECTS, fn))
+                db.execute("UPDATE projects SET file_path=? WHERE id=?", (fn, pid))
+        for ss in request.files.getlist('screenshots'):
+            if ss and ss.filename and allowed_file(ss.filename, ALLOWED_IMG):
+                fn = secure_filename(f'{uuid.uuid4()}_{ss.filename}')
+                ss.save(os.path.join(UPLOAD_SCREENSHOTS, fn))
+                db.execute("INSERT INTO screenshots (project_id,filename) VALUES (?,?)", (pid, fn))
+        db.commit()
+        flash('Project updated!', 'success')
+        return redirect(url_for('admin_projects'))
+    return render_template('admin/edit_project.html', project=project, screenshots=screenshots)
+
+@app.route('/admin/screenshot/delete/<int:sid>')
+@login_required
+@admin_required
+def delete_screenshot(sid):
+    db = get_db()
+    ss = db.execute("SELECT * FROM screenshots WHERE id=?", (sid,)).fetchone()
+    if ss:
+        try: os.remove(os.path.join(UPLOAD_SCREENSHOTS, ss['filename']))
+        except: pass
+        db.execute("DELETE FROM screenshots WHERE id=?", (sid,))
+        db.commit()
+    return jsonify({'ok': True})
+
+@app.route('/admin/orders')
+@login_required
+@admin_required
+def admin_orders():
+    db = get_db()
+    orders = db.execute('''
+        SELECT o.*, u.username, u.email, p.title, p.category FROM orders o
+        JOIN users u ON o.user_id=u.id
+        JOIN projects p ON o.project_id=p.id
+        ORDER BY o.created_at DESC
+    ''').fetchall()
+    return render_template('admin/orders.html', orders=orders)
+
+@app.route('/admin/order/<int:oid>/approve')
+@login_required
+@admin_required
+def approve_order(oid):
+    db = get_db()
+    db.execute("UPDATE orders SET status='approved', approved_at=? WHERE id=?",
+        (datetime.now().isoformat(), oid))
+    db.commit()
+    flash('Order approved!', 'success')
+    return redirect(url_for('admin_orders'))
+
+@app.route('/admin/order/<int:oid>/reject')
+@login_required
+@admin_required
+def reject_order(oid):
+    db = get_db()
+    db.execute("UPDATE orders SET status='rejected' WHERE id=?", (oid,))
+    db.commit()
+    flash('Order rejected.', 'success')
+    return redirect(url_for('admin_orders'))
+
+@app.route('/admin/payment-proof/<filename>')
+@login_required
+@admin_required
+def view_payment_proof(filename):
+    return send_from_directory(UPLOAD_PAYMENTS, filename)
+
+@app.route('/admin/chats')
+@login_required
+@admin_required
+def admin_chats():
+    db = get_db()
+    conversations = db.execute("""
+        SELECT u.id, u.username, u.email,
+            MAX(c.created_at) as last_message,
+            (SELECT message FROM chats WHERE user_id=u.id ORDER BY created_at DESC LIMIT 1) as last_text,
+            SUM(CASE WHEN c.is_admin_reply=0 THEN 1 ELSE 0 END) as unread
+        FROM chats c
+        JOIN users u ON c.user_id=u.id
+        WHERE u.is_admin=0
+        GROUP BY u.id ORDER BY last_message DESC
+    """).fetchall()
+    return render_template('admin/chats.html', conversations=conversations)
+
+@app.route('/admin/chat/<int:user_id>', methods=['GET','POST'])
+@login_required
+@admin_required
+def admin_chat_user(user_id):
+    db = get_db()
+    user = db.execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
+    if not user:
+        return redirect(url_for('admin_chats'))
+    if request.method == 'POST':
+        msg      = request.form.get('message','').strip()
+        order_id = request.form.get('order_id') or None
+        if msg:
+            db.execute("INSERT INTO chats (user_id, order_id, is_admin_reply, message) VALUES (?,?,1,?)",
+                (user_id, order_id, msg))
+            db.commit()
+        return redirect(url_for('admin_chat_user', user_id=user_id))
+    messages = db.execute("""
+        SELECT c.*, u.username, o.order_ref, p.title as project_title
+        FROM chats c
+        JOIN users u ON c.user_id=u.id
+        LEFT JOIN orders o ON c.order_id=o.id
+        LEFT JOIN projects p ON o.project_id=p.id
+        WHERE c.user_id=?
+        ORDER BY c.created_at ASC
+    """, (user_id,)).fetchall()
+    orders = db.execute("""
+        SELECT o.id, o.order_ref, p.title FROM orders o
+        JOIN projects p ON o.project_id=p.id
+        WHERE o.user_id=?
+    """, (user_id,)).fetchall()
+    return render_template('admin/chat_user.html', user=user, messages=messages, orders=orders)
+
+if __name__ == '__main__':
+    init_db()
+    app.run(debug=True)

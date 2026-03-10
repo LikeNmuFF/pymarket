@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block title %}Manage Projects{% endblock %}
+{% block extra_css %}
+<style>
+.admin-nav{display:flex;gap:.5rem;margin-bottom:2rem;border-bottom:1px solid var(--border);padding-bottom:1rem}
+.admin-nav a{padding:.5rem 1.1rem;border-radius:8px;font-size:.9rem;font-weight:500;color:var(--muted);transition:.2s}
+.admin-nav a:hover,.admin-nav a.active{background:var(--surface2);color:var(--text)}
+</style>
+{% endblock %}
+{% block content %}
+<div class="container">
+  <h1 class="page-title">Manage Projects</h1>
+  <div class="admin-nav">
+    <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('admin_projects') }}" class="active">Projects</a>
+    <a href="{{ url_for('admin_add_project') }}">+ Add Project</a>
+    <a href="{{ url_for('admin_orders') }}">All Orders</a>
+  </div>
+
+  <a href="{{ url_for('admin_add_project') }}" class="btn btn-primary" style="margin-bottom:1.5rem">+ Add New Project</a>
+
+  <div class="table-wrap" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden">
+    <table>
+      <thead><tr><th>Title</th><th>Category</th><th>Price</th><th>Sales</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for p in projects %}
+        <tr>
+          <td style="font-weight:600">{{ p['title'] }}</td>
+          <td>{% if p['category'] %}<span class="badge badge-cat">{{ p['category'] }}</span>{% else %}—{% endif %}</td>
+          <td style="font-weight:700;color:var(--accent)">₱{{ "%.2f"|format(p['price']) }}</td>
+          <td style="color:var(--green);font-weight:600">{{ p['sales'] }}</td>
+          <td>{% if p['is_active'] %}<span class="badge badge-green">Active</span>{% else %}<span class="badge badge-red">Hidden</span>{% endif %}</td>
+          <td style="display:flex;gap:.5rem">
+            <a href="{{ url_for('project_detail', pid=p['id']) }}" class="btn btn-outline btn-sm" target="_blank">👁</a>
+            <a href="{{ url_for('admin_edit_project', pid=p['id']) }}" class="btn btn-outline btn-sm">✏️ Edit</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
