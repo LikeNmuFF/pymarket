@@ -1,21 +1,14 @@
 {% extends 'base.html' %}
 {% block title %}View Source — {{ project['title'] }}{% endblock %}
-{% block extra_css %}
-<style>
-pre{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:1.5rem;overflow-x:auto;font-family:var(--mono);font-size:.85rem;line-height:1.7;color:var(--text)}
-</style>
-{% endblock %}
 {% block content %}
 <div class="container">
-  <a href="{{ url_for('my_orders') }}" style="color:var(--muted);font-size:.9rem;display:inline-flex;align-items:center;gap:.4rem;margin-bottom:1.5rem">← My Orders</a>
+  <a href="{{ url_for('my_orders') }}" style="color:var(--muted);font-size:.88rem;display:inline-flex;align-items:center;gap:.3rem;margin-bottom:1.2rem">← My Orders</a>
   <h1 class="page-title">{{ project['title'] }}</h1>
-
   {% if source %}
-    <p class="page-sub">Source Code Preview</p>
-    <pre><code>{{ source }}</code></pre>
+    <pre style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:1.3rem;overflow-x:auto;font-family:var(--mono);font-size:.82rem;line-height:1.7;color:var(--text);max-height:70vh;overflow-y:auto"><code>{{ source }}</code></pre>
   {% else %}
-    <div class="flash info">This project file is a zip/archive. Please download it to view the source code.</div>
-    <a href="{{ url_for('download_project', order_id=request.view_args.order_id) }}" class="btn btn-success" style="margin-top:1rem">⬇️ Download Project</a>
+    <div class="flash info">This is a zip/archive. Please download to view source code.</div>
+    <a href="{{ url_for('download_project',order_id=order_id) }}" class="btn btn-success" style="margin-top:1rem">⬇️ Download</a>
   {% endif %}
 </div>
 {% endblock %}

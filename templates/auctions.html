@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block title %}Auctions{% endblock %}
+{% block content %}
+<div class="container">
+  <h1 class="page-title">🏷 Upcoming Auctions</h1>
+  <p class="page-sub">Register your interest — be the first to know when these projects open for sale.</p>
+  {% if auctions %}
+  <div class="grid">
+    {% for a in auctions %}
+    <div class="auction-card">
+      {% if a['thumb'] %}
+        <img src="{{ url_for('static',filename='uploads/screenshots/'+a['thumb']) }}" style="width:100%;height:160px;object-fit:cover;display:block">
+      {% else %}
+        <div style="width:100%;height:160px;background:linear-gradient(135deg,var(--surface2),var(--border));display:flex;align-items:center;justify-content:center;font-size:3rem">🏷</div>
+      {% endif %}
+      <div class="auction-header">
+        <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+          <span class="badge badge-yellow">⏳ Coming Soon</span>
+          {% if a['category'] %}<span class="badge badge-cat">{{ a['category'] }}</span>{% endif %}
+        </div>
+        <div style="font-weight:700;font-size:1rem;margin-top:.5rem">{{ a['title'] }}</div>
+        <div style="color:var(--muted);font-size:.82rem">{{ a['project_title'] }}</div>
+      </div>
+      <div style="padding:1.1rem 1.2rem">
+        <div style="color:var(--muted);font-size:.85rem;margin-bottom:.9rem;line-height:1.5">{{ a['description'] }}</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem;flex-wrap:wrap;gap:.4rem">
+          <div style="font-size:.82rem;color:var(--muted)">🗓 Opens: <strong style="color:var(--text)">{{ a['opens_at'][:16] }}</strong></div>
+          <span class="badge badge-tech">{{ a['interest_count'] }} interested</span>
+        </div>
+        {% if session.get('user_id') and not session.get('is_admin') %}
+        <button class="btn btn-sm btn-full {% if a['user_interested'] %}btn-success{% else %}btn-warning{% endif %} interest-btn"
+          data-id="{{ a['id'] }}" onclick="toggleInterest({{ a['id'] }}, this)">
+          {% if a['user_interested'] %}✅ Notifying me{% else %}🔔 Notify Me{% endif %}
+        </button>
+        {% else %}
+        <button class="btn btn-sm btn-outline btn-full" onclick="requireLogin('')">🔔 Notify Me</button>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty"><div class="empty-icon">🏷</div><div>No upcoming auctions yet. Check back soon!</div></div>
+  {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function toggleInterest(id, btn){
+  {% if not session.get('user_id') %}
+    document.getElementById('loginModal').classList.add('active'); return;
+  {% endif %}
+  const res = await fetch(`/auction/${id}/interest`, {method:'POST'});
+  const data = await res.json();
+  if(data.ok){
+    btn.textContent = data.interested ? `✅ Notifying me` : `🔔 Notify Me`;
+    btn.className = `btn btn-sm btn-full ${data.interested?'btn-success':'btn-warning'} interest-btn`;
+  }
+}
+</script>
+{% endblock %}

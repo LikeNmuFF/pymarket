@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block title %}Edit Profile{% endblock %}
+{% block content %}
+<div class="container" style="max-width:560px">
+  <a href="{{ url_for('profile') }}" style="color:var(--muted);font-size:.88rem;display:inline-flex;align-items:center;gap:.3rem;margin-bottom:1.2rem">← Back to Profile</a>
+  <h1 class="page-title">Edit Profile</h1>
+  <div class="form-card" style="max-width:100%">
+    <form method="POST" enctype="multipart/form-data">
+      <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem">
+        <div class="profile-avatar">
+          {% if user['avatar'] %}<img src="{{ url_for('serve_avatar',filename=user['avatar']) }}" alt="avatar">
+          {% else %}{{ user['username'][0].upper() }}{% endif %}
+        </div>
+        <div style="flex:1">
+          <label>Profile Photo</label>
+          <input type="file" name="avatar" accept="image/*">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" name="username" value="{{ user['username'] }}" required>
+      </div>
+      <div class="form-group">
+        <label>Bio</label>
+        <textarea name="bio" placeholder="Tell something about yourself...">{{ user['bio'] or '' }}</textarea>
+      </div>
+      <hr class="divider">
+      <div style="color:var(--muted);font-size:.85rem;margin-bottom:1rem">Leave password fields blank to keep current password.</div>
+      <div class="form-group">
+        <label>Current Password</label>
+        <input type="password" name="current_password" placeholder="Required to change password">
+      </div>
+      <div class="form-group">
+        <label>New Password</label>
+        <input type="password" name="new_password" placeholder="Leave blank to keep current">
+      </div>
+      <button type="submit" class="btn btn-primary btn-full">💾 Save Changes</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

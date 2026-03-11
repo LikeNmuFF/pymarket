@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block title %}Manage Auctions{% endblock %}
+{% block content %}
+<div class="container">
+  <h1 class="page-title">🏷 Manage Auctions</h1>
+  <div class="admin-nav">
+    <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('admin_projects') }}">Projects</a>
+    <a href="{{ url_for('admin_orders') }}">Orders</a>
+    <a href="{{ url_for('admin_auctions') }}" class="active">🏷 Auctions</a>
+    <a href="{{ url_for('admin_chats') }}">💬 Chats</a>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 360px;gap:1.8rem;align-items:start">
+    <div>
+      {% if auctions %}
+      <div style="display:flex;flex-direction:column;gap:.9rem">
+        {% for a in auctions %}
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.2rem">
+          <div style="display:flex;align-items:flex-start;gap:.8rem;flex-wrap:wrap">
+            <div style="flex:1;min-width:160px">
+              <div style="font-weight:700">{{ a['title'] }}</div>
+              <div style="color:var(--muted);font-size:.83rem">{{ a['project_title'] }}</div>
+              <div style="color:var(--muted);font-size:.78rem;margin-top:.3rem">Opens: {{ a['opens_at'][:16] }}</div>
+            </div>
+            <span class="badge badge-tech">{{ a['interest_count'] }} interested</span>
+            {% if a['is_active'] %}<span class="badge badge-green">Active</span>{% else %}<span class="badge badge-red">Hidden</span>{% endif %}
+            <a href="{{ url_for('toggle_auction',aid=a['id']) }}" class="btn btn-outline btn-sm">{{ 'Hide' if a['is_active'] else 'Show' }}</a>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty"><div class="empty-icon">🏷</div><div>No auctions yet.</div></div>
+      {% endif %}
+    </div>
+    <div>
+      <div class="form-card" style="max-width:100%">
+        <div style="font-family:var(--display);font-size:1.1rem;font-weight:800;margin-bottom:1.2rem">+ New Auction</div>
+        <form method="POST">
+          <div class="form-group">
+            <label>Project *</label>
+            <select name="project_id" required>
+              <option value="">— Select project —</option>
+              {% for p in projects %}<option value="{{ p['id'] }}">{{ p['title'] }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="form-group"><label>Auction Title *</label><input type="text" name="title" placeholder="e.g. Exclusive Launch" required></div>
+          <div class="form-group"><label>Description</label><textarea name="description" placeholder="What buyers can expect..."></textarea></div>
+          <div class="form-group"><label>Opens At *</label><input type="datetime-local" name="opens_at" required></div>
+          <button type="submit" class="btn btn-primary btn-full">🚀 Create Auction</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,56 +1,20 @@
 {% extends 'base.html' %}
 {% block title %}Create Account{% endblock %}
 {% block content %}
-<div class="container" style="padding-top:3rem">
+<div class="container" style="padding-top:2.5rem">
   <div class="form-card">
-    <div style="text-align:center;margin-bottom:2rem">
-      <div style="font-size:2.5rem;margin-bottom:.5rem">👤</div>
-      <h1 style="font-family:'Syne',sans-serif;font-size:1.8rem;font-weight:800">Create Account</h1>
-      <p style="color:var(--muted);font-size:.9rem">Join PyMarket and access premium Python projects</p>
+    <div style="text-align:center;margin-bottom:1.8rem">
+      <div style="font-size:2.2rem;margin-bottom:.4rem">👤</div>
+      <h1 style="font-family:var(--display);font-size:1.7rem;font-weight:800">Create Account</h1>
+      <p style="color:var(--muted);font-size:.88rem">Join PyMarket and access premium Python projects</p>
     </div>
-
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% for cat, msg in messages %}
-        {% if msg != 'login_required' %}
-          <div class="flash {{ cat }}" style="margin-bottom:1rem">{{ msg }}</div>
-        {% endif %}
-      {% endfor %}
-    {% endwith %}
-
-    <div>
-      <div class="form-group">
-        <label>Username</label>
-        <input type="text" name="username" id="username" placeholder="cooldev123" required>
-      </div>
-      <div class="form-group">
-        <label>Email</label>
-        <input type="email" name="email" id="email" placeholder="you@email.com" required>
-      </div>
-      <div class="form-group">
-        <label>Password</label>
-        <input type="password" name="password" id="password" placeholder="Min. 6 characters" required>
-      </div>
-      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="submitRegister()">Create Account</button>
-    </div>
-
-    <p style="text-align:center;margin-top:1.5rem;color:var(--muted);font-size:.9rem">
-      Already have an account? <a href="{{ url_for('login') }}" style="color:var(--accent)">Login</a>
-    </p>
+    <form method="POST" action="{{ url_for('register') }}">
+      <div class="form-group"><label>Username</label><input type="text" name="username" placeholder="cooldev123" required></div>
+      <div class="form-group"><label>Email</label><input type="email" name="email" placeholder="you@email.com" required></div>
+      <div class="form-group"><label>Password</label><input type="password" name="password" placeholder="Min. 6 characters" required></div>
+      <button type="submit" class="btn btn-primary btn-full">Create Account</button>
+    </form>
+    <p style="text-align:center;margin-top:1.3rem;color:var(--muted);font-size:.88rem">Already have an account? <a href="{{ url_for('login') }}" style="color:var(--accent)">Login</a></p>
   </div>
 </div>
-<form id="regForm" method="POST" action="{{ url_for('register') }}" style="display:none">
-  <input type="text" name="username" id="f_username">
-  <input type="email" name="email" id="f_email">
-  <input type="password" name="password" id="f_password">
-</form>
-{% endblock %}
-{% block scripts %}
-<script>
-function submitRegister() {
-  document.getElementById('f_username').value = document.getElementById('username').value;
-  document.getElementById('f_email').value = document.getElementById('email').value;
-  document.getElementById('f_password').value = document.getElementById('password').value;
-  document.getElementById('regForm').submit();
-}
-</script>
 {% endblock %}

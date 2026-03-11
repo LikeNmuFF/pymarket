@@ -2,47 +2,64 @@
 {% block title %}Buy — {{ project['title'] }}{% endblock %}
 {% block extra_css %}
 <style>
-.gcash-box{background:linear-gradient(135deg,rgba(0,115,230,.12),rgba(0,183,255,.08));border:1px solid rgba(0,150,255,.25);border-radius:14px;padding:2rem;text-align:center;margin-bottom:2rem}
-.gcash-num{font-family:'JetBrains Mono',monospace;font-size:2rem;font-weight:700;color:#00b3ff;letter-spacing:.1em;margin:1rem 0}
-.steps{counter-reset:steps;list-style:none;margin-bottom:2rem}
-.steps li{counter-increment:steps;padding:.9rem 1rem .9rem 3rem;position:relative;border-left:2px solid var(--border);margin-left:1rem;color:var(--muted);font-size:.9rem}
-.steps li:before{content:counter(steps);position:absolute;left:-1.1rem;top:.7rem;background:var(--accent);color:#fff;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700}
+.gcash-box{background:linear-gradient(135deg,rgba(0,100,220,.1),rgba(0,180,255,.07));border:1px solid rgba(0,150,255,.22);border-radius:14px;padding:1.8rem;text-align:center;margin-bottom:1.8rem}
+.gcash-num{font-family:var(--mono);font-size:1.7rem;font-weight:700;color:#00b3ff;letter-spacing:.08em;margin:.8rem 0}
+.qr-wrap{background:white;border-radius:12px;padding:1rem;display:inline-block;margin:1rem 0}
+.qr-wrap img{width:180px;height:180px;display:block}
+.steps{counter-reset:steps;list-style:none;margin-bottom:1.8rem}
+.steps li{counter-increment:steps;padding:.8rem 1rem .8rem 2.8rem;position:relative;border-left:2px solid var(--border);margin-left:.9rem;color:var(--muted);font-size:.88rem}
+.steps li:before{content:counter(steps);position:absolute;left:-1rem;top:.65rem;background:var(--accent);color:#fff;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700}
+.pay-methods{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1.2rem 0}
+@media(max-width:400px){.pay-methods{grid-template-columns:1fr}}
 </style>
 {% endblock %}
 {% block content %}
-<div class="container" style="max-width:640px">
-  <a href="{{ url_for('project_detail', pid=project['id']) }}" style="color:var(--muted);font-size:.9rem;display:inline-flex;align-items:center;gap:.4rem;margin-bottom:1.5rem">← Back to project</a>
+<div class="container" style="max-width:620px">
+  <a href="{{ url_for('project_detail',pid=project['id']) }}" style="color:var(--muted);font-size:.88rem;display:inline-flex;align-items:center;gap:.3rem;margin-bottom:1.2rem">← Back to project</a>
   <h1 class="page-title">Complete Your Purchase</h1>
   <p class="page-sub">{{ project['title'] }}{% if project['category'] %} · <span class="badge badge-cat">{{ project['category'] }}</span>{% endif %}</p>
 
-  {% if existing and existing['status'] == 'pending' %}
-  <div class="flash info" style="margin-bottom:1.5rem">⏳ You already have a pending order (Ref: <strong>{{ existing['order_ref'] }}</strong>). Waiting for admin approval.</div>
+  {% if existing and existing['status']=='pending' %}
+  <div class="flash info" style="margin-bottom:1.3rem">⏳ Pending order (Ref: <strong>{{ existing['order_ref'] }}</strong>) — waiting for admin approval.</div>
   {% endif %}
 
-  <!-- VAT Breakdown -->
   <div class="vat-breakdown">
     <div class="vat-row"><span>Base price</span><span>₱{{ "%.2f"|format(base_price) }}</span></div>
-    <div class="vat-row"><span>VAT (10%)</span><span>₱{{ "%.2f"|format(vat_amount) }}</span></div>
-    <div class="vat-row total"><span>Total to pay</span><span>₱{{ "%.2f"|format(total_price) }}</span></div>
+    <div class="vat-row"><span>VAT (0.5%)</span><span>₱{{ "%.2f"|format(vat_amount) }}</span></div>
+    <div class="vat-row total"><span>💰 Total to pay</span><span>₱{{ "%.2f"|format(total_price) }}</span></div>
   </div>
 
   <div class="gcash-box">
-    <div style="font-size:2rem;margin-bottom:.5rem">💙</div>
-    <div style="font-weight:700;font-size:1.1rem">Send payment to GCash</div>
-    <div class="gcash-num">09XX-XXX-XXXX</div>
-    <div style="color:var(--muted);font-size:.9rem">Account Name: <strong>Your Name Here</strong></div>
-    <hr style="border-color:rgba(0,150,255,.2);margin:1rem 0">
-    <div style="color:var(--muted);font-size:.9rem">Amount to send (VAT included)</div>
-    <div style="font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;color:var(--green);margin:.4rem 0">₱{{ "%.2f"|format(total_price) }}</div>
-    <div style="font-size:.8rem;color:var(--muted)">Include your email in the GCash note</div>
+    <div style="font-size:1.8rem;margin-bottom:.4rem">💙</div>
+    <div style="font-weight:700;font-size:1.05rem">Pay via GCash</div>
+    <div class="gcash-num">{{ gcash_number }}</div>
+    <div style="color:var(--muted);font-size:.88rem">Account: <strong style="color:var(--text)">{{ gcash_name }}</strong></div>
+    <div style="color:var(--muted);font-size:.82rem;margin-top:.3rem">Amount: <strong style="color:var(--green);font-size:1rem">₱{{ "%.2f"|format(total_price) }}</strong></div>
+
+    <!-- QR Code (Google Charts API — free, no install needed) -->
+    <div class="qr-wrap">
+      <img src="{{ qr_url }}" alt="GCash QR Code" loading="lazy">
+    </div>
+    <div style="font-size:.78rem;color:var(--muted);margin-bottom:.8rem">Scan QR with your GCash app</div>
+
+    <!-- Pay directly button -->
+    <div class="pay-methods">
+      <a href="{{ deep_link }}" class="btn btn-primary" target="_blank" rel="noopener">
+        📱 Open GCash App
+      </a>
+      <a href="{{ deep_link }}" class="btn btn-outline" target="_blank" rel="noopener">
+        🔗 GCash Link
+      </a>
+    </div>
+    <div style="font-size:.75rem;color:var(--muted)">Include your email in the GCash note</div>
   </div>
 
   <ol class="steps">
-    <li>Open GCash and send <strong>₱{{ "%.2f"|format(total_price) }}</strong> (VAT included) to the number above</li>
-    <li>Screenshot your GCash transaction confirmation</li>
-    <li>Fill the form below with your reference number and upload the screenshot</li>
-    <li>Admin will verify and approve (usually within a few hours)</li>
-    <li>Download the project from <a href="{{ url_for('my_orders') }}" style="color:var(--accent)">My Orders</a></li>
+    <li>Scan the QR code above OR tap <strong>Open GCash App</strong></li>
+    <li>Send exactly <strong>₱{{ "%.2f"|format(total_price) }}</strong> to {{ gcash_number }}</li>
+    <li>Screenshot your GCash receipt</li>
+    <li>Fill in your reference number below and upload the screenshot</li>
+    <li>Admin verifies and approves — usually within a few hours</li>
   </ol>
 
   <div class="form-card" style="max-width:100%">
@@ -52,10 +69,10 @@
         <input type="text" name="gcash_ref" placeholder="e.g. 1234567890" required>
       </div>
       <div class="form-group">
-        <label>Payment Screenshot (optional but recommended)</label>
+        <label>Payment Screenshot (recommended)</label>
         <input type="file" name="payment_screenshot" accept="image/*">
       </div>
-      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">✅ Submit Payment Proof</button>
+      <button type="submit" class="btn btn-primary btn-full">✅ Submit Payment</button>
     </form>
   </div>
 </div>

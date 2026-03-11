@@ -1,43 +1,25 @@
 {% extends 'base.html' %}
 {% block title %}{{ title }}{% endblock %}
 {% block content %}
-<div class="container" style="max-width:720px">
-  <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap">
-    <a href="{{ url_for('my_orders') }}" style="color:var(--muted);font-size:.9rem">← My Orders</a>
+<div class="container" style="max-width:700px">
+  <div style="display:flex;align-items:center;gap:.8rem;margin-bottom:1.3rem;flex-wrap:wrap">
+    <a href="{{ url_for('my_orders') }}" style="color:var(--muted);font-size:.88rem">← My Orders</a>
     <span style="color:var(--border)">|</span>
-    <a href="{{ url_for('chat_general') }}" style="color:var(--muted);font-size:.9rem;{% if not order %}color:var(--accent){% endif %}">💬 General Support</a>
+    <a href="{{ url_for('chat_general') }}" style="color:{% if not order %}var(--accent){% else %}var(--muted){% endif %};font-size:.88rem">💬 General</a>
   </div>
-
-  <h1 class="page-title" style="font-size:1.5rem">{{ title }}</h1>
-  {% if order %}
-    <div style="margin-bottom:1.5rem">
-      <span class="badge badge-cat">{{ order['project_title'] }}</span>
-      <span class="badge badge-tech" style="margin-left:.4rem">Order #{{ order['order_ref'] }}</span>
-    </div>
-  {% else %}
-    <p class="page-sub">Ask us anything — we'll reply as soon as possible.</p>
-  {% endif %}
-
+  <h1 class="page-title" style="font-size:1.4rem">{{ title }}</h1>
+  {% if order %}<div style="margin-bottom:1.2rem"><span class="badge badge-cat">{{ order['project_title'] }}</span> <span class="badge badge-tech">Order #{{ order['order_ref'] }}</span></div>
+  {% else %}<p class="page-sub">Ask us anything — we'll reply soon.</p>{% endif %}
   <div class="chat-wrap" id="chatWrap">
-    {% if not messages %}
-      <div style="text-align:center;color:var(--muted);padding:2rem;font-size:.9rem">No messages yet. Say hello! 👋</div>
-    {% endif %}
+    {% if not messages %}<div style="text-align:center;color:var(--muted);padding:1.5rem;font-size:.88rem">No messages yet. Say hello! 👋</div>{% endif %}
     {% for m in messages %}
-      {% if m['is_admin_reply'] %}
-        <div class="chat-msg theirs">
-          <div class="chat-bubble">{{ m['message'] }}</div>
-          <div class="chat-meta">👑 Admin · {{ m['created_at'][11:16] }}</div>
-        </div>
-      {% else %}
-        <div class="chat-msg mine">
-          <div class="chat-bubble">{{ m['message'] }}</div>
-          <div class="chat-meta">You · {{ m['created_at'][11:16] }}</div>
-        </div>
-      {% endif %}
+      <div class="chat-msg {% if m['is_admin_reply'] %}theirs{% else %}mine{% endif %}">
+        <div class="chat-bubble">{{ m['message'] }}</div>
+        <div class="chat-meta">{% if m['is_admin_reply'] %}👑 Admin{% else %}You{% endif %} · {{ m['created_at'][11:16] }}</div>
+      </div>
     {% endfor %}
   </div>
-
-  <form method="POST" style="margin-top:1rem">
+  <form method="POST" style="margin-top:.9rem">
     <div class="chat-input-row">
       <input type="text" name="message" placeholder="Type your message..." autocomplete="off" required>
       <button type="submit" class="btn btn-primary">Send</button>
@@ -45,9 +27,4 @@
   </form>
 </div>
 {% endblock %}
-{% block scripts %}
-<script>
-const wrap = document.getElementById('chatWrap');
-if(wrap) wrap.scrollTop = wrap.scrollHeight;
-</script>
-{% endblock %}
+{% block scripts %}<script>const w=document.getElementById('chatWrap');if(w)w.scrollTop=w.scrollHeight;</script>{% endblock %}

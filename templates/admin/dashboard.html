@@ -1,50 +1,43 @@
 {% extends 'base.html' %}
 {% block title %}Admin Dashboard{% endblock %}
-{% block extra_css %}
-<style>
-.admin-nav{display:flex;gap:.5rem;margin-bottom:2rem;border-bottom:1px solid var(--border);padding-bottom:1rem;flex-wrap:wrap}
-.admin-nav a{padding:.5rem 1.1rem;border-radius:8px;font-size:.9rem;font-weight:500;color:var(--muted);transition:.2s}
-.admin-nav a:hover,.admin-nav a.active{background:var(--surface2);color:var(--text)}
-</style>
-{% endblock %}
 {% block content %}
 <div class="container">
   <h1 class="page-title">Admin Panel</h1>
   <div class="admin-nav">
     <a href="{{ url_for('admin_dashboard') }}" class="active">Dashboard</a>
     <a href="{{ url_for('admin_projects') }}">Projects</a>
-    <a href="{{ url_for('admin_add_project') }}">+ Add Project</a>
-    <a href="{{ url_for('admin_orders') }}">All Orders</a>
-    <a href="{{ url_for('admin_chats') }}">💬 Chats {% if stats.unread_chats > 0 %}<span class="notif-dot">{{ stats.unread_chats }}</span>{% endif %}</a>
+    <a href="{{ url_for('admin_add_project') }}">+ Add</a>
+    <a href="{{ url_for('admin_orders') }}">Orders</a>
+    <a href="{{ url_for('admin_auctions') }}">🏷 Auctions</a>
+    <a href="{{ url_for('admin_chats') }}">💬 Chats {% if stats.unread_chats>0 %}<span class="notif-dot">{{ stats.unread_chats }}</span>{% endif %}</a>
   </div>
-
   <div class="stats-grid">
     <div class="stat-card"><div class="stat-label">Projects</div><div class="stat-value" style="color:var(--accent)">{{ stats.projects }}</div></div>
     <div class="stat-card"><div class="stat-label">Customers</div><div class="stat-value" style="color:var(--accent2)">{{ stats.users }}</div></div>
-    <div class="stat-card"><div class="stat-label">Pending Orders</div><div class="stat-value" style="color:var(--yellow)">{{ stats.pending }}</div></div>
+    <div class="stat-card"><div class="stat-label">Pending</div><div class="stat-value" style="color:var(--yellow)">{{ stats.pending }}</div></div>
     <div class="stat-card"><div class="stat-label">Revenue</div><div class="stat-value" style="color:var(--green)">₱{{ "%.0f"|format(stats.revenue) }}</div></div>
-    <div class="stat-card"><div class="stat-label">Active Chats</div><div class="stat-value" style="color:var(--accent)">{{ stats.unread_chats }}</div></div>
+    <div class="stat-card"><div class="stat-label">Auctions</div><div class="stat-value" style="color:var(--yellow)">{{ stats.auctions }}</div></div>
+    <div class="stat-card"><div class="stat-label">Chats</div><div class="stat-value" style="color:var(--accent)">{{ stats.unread_chats }}</div></div>
   </div>
-
   {% if pending_orders %}
-  <h2 style="font-size:1.1rem;font-weight:700;margin-bottom:1rem">⏳ Pending Approvals</h2>
+  <h2 style="font-size:1rem;font-weight:700;margin-bottom:.9rem">⏳ Pending Approvals</h2>
   <div class="table-wrap" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden">
     <table>
-      <thead><tr><th>Ref</th><th>Customer</th><th>Project</th><th>Category</th><th>Amount</th><th>GCash Ref</th><th>Proof</th><th>Date</th><th>Actions</th></tr></thead>
+      <thead><tr><th>Ref</th><th>Customer</th><th>Project</th><th>Cat</th><th>Amount</th><th>GCash Ref</th><th>Proof</th><th>Date</th><th>Actions</th></tr></thead>
       <tbody>
         {% for o in pending_orders %}
         <tr>
-          <td><span style="font-family:var(--mono);font-size:.8rem">{{ o['order_ref'] }}</span></td>
-          <td><div style="font-weight:600;font-size:.9rem">{{ o['username'] }}</div><div style="color:var(--muted);font-size:.78rem">{{ o['email'] }}</div></td>
-          <td style="font-size:.9rem">{{ o['title'] }}</td>
+          <td><span style="font-family:var(--mono);font-size:.78rem">{{ o['order_ref'] }}</span></td>
+          <td><div style="font-weight:600;font-size:.87rem">{{ o['username'] }}</div><div style="color:var(--muted);font-size:.76rem">{{ o['email'] }}</div></td>
+          <td style="font-size:.87rem">{{ o['title'] }}</td>
           <td>{% if o['category'] %}<span class="badge badge-cat">{{ o['category'] }}</span>{% else %}—{% endif %}</td>
-          <td style="font-weight:700;color:var(--accent)">₱{{ "%.2f"|format(o['amount']) }}</td>
-          <td style="font-family:var(--mono);font-size:.82rem">{{ o['gcash_ref'] or '—' }}</td>
-          <td>{% if o['payment_screenshot'] %}<a href="{{ url_for('view_payment_proof', filename=o['payment_screenshot']) }}" target="_blank" class="btn btn-outline btn-sm">View</a>{% else %}—{% endif %}</td>
-          <td style="color:var(--muted);font-size:.78rem">{{ o['created_at'][:16] }}</td>
-          <td style="display:flex;gap:.4rem">
-            <a href="{{ url_for('approve_order', oid=o['id']) }}" class="btn btn-success btn-sm">✅</a>
-            <a href="{{ url_for('reject_order', oid=o['id']) }}" class="btn btn-danger btn-sm">❌</a>
+          <td style="font-weight:700;color:var(--accent);white-space:nowrap">₱{{ "%.2f"|format(o['amount']) }}</td>
+          <td style="font-family:var(--mono);font-size:.8rem">{{ o['gcash_ref'] or '—' }}</td>
+          <td>{% if o['payment_screenshot'] %}<a href="{{ url_for('view_payment_proof',filename=o['payment_screenshot']) }}" target="_blank" class="btn btn-outline btn-sm">View</a>{% else %}—{% endif %}</td>
+          <td style="color:var(--muted);font-size:.76rem;white-space:nowrap">{{ o['created_at'][:16] }}</td>
+          <td style="display:flex;gap:.3rem;flex-wrap:wrap">
+            <a href="{{ url_for('approve_order',oid=o['id']) }}" class="btn btn-success btn-sm">✅</a>
+            <a href="{{ url_for('reject_order',oid=o['id']) }}" class="btn btn-danger btn-sm">❌</a>
           </td>
         </tr>
         {% endfor %}
