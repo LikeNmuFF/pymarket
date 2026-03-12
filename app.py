@@ -4,9 +4,10 @@ from werkzeug.utils import secure_filename
 import sqlite3, os, uuid, urllib.parse
 from datetime import datetime
 from functools import wraps
+import secrets
 
 app = Flask(__name__)
-app.secret_key = 'your-secret-key-change-this-in-production'
+app.secret_key = secrets.token_hex(32)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH  = os.path.join(BASE_DIR, 'market.db')
@@ -21,11 +22,9 @@ for folder in [UPLOAD_SCREENSHOTS, UPLOAD_PROJECTS, UPLOAD_PAYMENTS, UPLOAD_AVAT
 
 ALLOWED_IMG     = {'png','jpg','jpeg','gif','webp'}
 ALLOWED_PROJECT = {'zip','rar','tar','gz','py'}
-VAT_RATE        = 0.05   # 0.5% VAT
-GCASH_NUMBER    = '+639518346025'   # ← change this
-GCASH_NAME      = 'ROSARIO B.'  # ← change this
-
-# ── DB ────────────────────────────────────────────────────────────────────────
+VAT_RATE        = 0.05
+GCASH_NUMBER    = '+639518346025'
+GCASH_NAME      = 'RO....O B.'
 
 def get_db():
     conn = sqlite3.connect(DB_PATH)
@@ -91,25 +90,44 @@ def init_db():
                 project_id INTEGER NOT NULL,
                 title TEXT NOT NULL,
                 description TEXT NOT NULL,
-                opens_at TEXT NOT NULL,
-                is_active INTEGER DEFAULT 1,
+                start_price REAL NOT NULL DEFAULT 0,
+                min_increment REAL NOT NULL DEFAULT 10,
+                starts_at TEXT NOT NULL,
+                ends_at TEXT NOT NULL,
+                status TEXT DEFAULT 'upcoming',
+                winner_id INTEGER,
+                winning_bid REAL,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY(project_id) REFERENCES projects(id)
+                FOREIGN KEY(project_id) REFERENCES projects(id),
+                FOREIGN KEY(winner_id) REFERENCES users(id)
             );
-            CREATE TABLE IF NOT EXISTS auction_interests (
+            CREATE TABLE IF NOT EXISTS auction_bids (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 auction_id INTEGER NOT NULL,
                 user_id INTEGER NOT NULL,
+                amount REAL NOT NULL,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(auction_id, user_id),
                 FOREIGN KEY(auction_id) REFERENCES auctions(id),
                 FOREIGN KEY(user_id) REFERENCES users(id)
             );
         ''')
-        # Add missing columns if upgrading
         try: db.execute("ALTER TABLE users ADD COLUMN bio TEXT DEFAULT ''")
         except: pass
         try: db.execute("ALTER TABLE users ADD COLUMN avatar TEXT DEFAULT ''")
+        except: pass
+        try: db.execute("ALTER TABLE auctions ADD COLUMN start_price REAL NOT NULL DEFAULT 0")
+        except: pass
+        try: db.execute("ALTER TABLE auctions ADD COLUMN min_increment REAL NOT NULL DEFAULT 10")
+        except: pass
+        try: db.execute("ALTER TABLE auctions ADD COLUMN starts_at TEXT")
+        except: pass
+        try: db.execute("ALTER TABLE auctions ADD COLUMN ends_at TEXT")
+        except: pass
+        try: db.execute("ALTER TABLE auctions ADD COLUMN status TEXT DEFAULT 'upcoming'")
+        except: pass
+        try: db.execute("ALTER TABLE auctions ADD COLUMN winner_id INTEGER")
+        except: pass
+        try: db.execute("ALTER TABLE auctions ADD COLUMN winning_bid REAL")
         except: pass
         try:
             db.execute("INSERT INTO users (username,email,password,is_admin) VALUES (?,?,?,1)",
@@ -138,22 +156,66 @@ def allowed_file(filename, allowed):
     return '.' in filename and filename.rsplit('.',1)[1].lower() in allowed
 
 def gcash_qr_url(amount, note=''):
-    # QR Server API — free, reliable, works on PythonAnywhere
-    data = f"Send ₱{amount} to {GCASH_NUMBER} ({GCASH_NAME}) via GCash. Ref: {note}"
+    data = f"Send PHP {amount} to {GCASH_NUMBER} ({GCASH_NAME}) via GCash. Ref: {note}"
     encoded = urllib.parse.quote(data)
     return f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={encoded}"
 
-def gcash_deep_link(amount, note=''):
-    # No official GCash deep link exists — show a helpful instructions link instead
-    return None
+def auction_status(a):
+    now = datetime.now().isoformat()
+    starts = a['starts_at'] or ''
+    ends   = a['ends_at'] or ''
+    if not starts or now < starts:
+        return 'upcoming'
+    if ends and now > ends:
+        return 'ended'
+    return 'live'
 
-# ── Public routes ─────────────────────────────────────────────────────────────
+def get_active_auction(db, project_id):
+    """Returns auction that is currently live for this project."""
+    now = datetime.now().isoformat()
+    return db.execute(
+        "SELECT id FROM auctions WHERE project_id=? AND starts_at <= ? AND ends_at >= ?",
+        (project_id, now, now)).fetchone()
+
+def get_ended_auction_winner(db, project_id):
+    """Returns ended auction with winner info. Always returns if auction ended with bids."""
+    now = datetime.now().isoformat()
+    # Get the most recent ended auction for this project that had bids
+    auction = db.execute("""
+        SELECT a.*,
+            (SELECT MAX(amount) FROM auction_bids WHERE auction_id=a.id) as winning_amount,
+            (SELECT COUNT(*) FROM auction_bids WHERE auction_id=a.id) as total_bids
+        FROM auctions a
+        WHERE a.project_id=? AND a.ends_at < ?
+        ORDER BY a.ends_at DESC LIMIT 1
+    """, (project_id, now)).fetchone()
+    if not auction or not auction['total_bids']:
+        return None
+    # Get winner separately to avoid subquery type issues
+    winner_bid = db.execute(
+        "SELECT b.user_id, u.username FROM auction_bids b JOIN users u ON b.user_id=u.id WHERE b.auction_id=? ORDER BY b.amount DESC LIMIT 1",
+        (auction['id'],)).fetchone()
+    if not winner_bid:
+        return None
+    # Check if winner already has a pending/approved order for this project
+    already_paid = db.execute(
+        "SELECT id FROM orders WHERE project_id=? AND user_id=? AND status IN ('pending','approved')",
+        (project_id, winner_bid['user_id'])).fetchone()
+    if already_paid:
+        return None  # Winner already paid, treat as normal sold-out
+    result = dict(auction)
+    result['winner_id'] = winner_bid['user_id']
+    result['winner_username'] = winner_bid['username']
+    return result
+
+# ── Public ────────────────────────────────────────────────────────────────────
 
 @app.route('/')
 def index():
     db = get_db()
     search   = request.args.get('q','')
     category = request.args.get('cat','')
+    now = datetime.now().isoformat()
     query = """
         SELECT p.*,
             (SELECT filename FROM screenshots WHERE project_id=p.id LIMIT 1) as thumb,
@@ -161,10 +223,13 @@ def index():
             (SELECT GROUP_CONCAT(u.username, ', ')
              FROM orders o JOIN users u ON o.user_id=u.id
              WHERE o.project_id=p.id AND o.status='approved') as buyer_names,
-            (SELECT COUNT(*) FROM orders o WHERE o.project_id=p.id AND o.status='approved') as is_sold_out
+            (SELECT COUNT(*) FROM orders o WHERE o.project_id=p.id AND o.status='approved') as is_sold_out,
+            (SELECT id FROM auctions a
+             WHERE a.project_id=p.id AND a.starts_at <= ? AND a.ends_at >= ?
+             LIMIT 1) as active_auction_id
         FROM projects p WHERE p.is_active=1
     """
-    params = []
+    params = [now, now]
     if search:
         query += " AND (p.title LIKE ? OR p.description LIKE ? OR p.tech_stack LIKE ?)"
         params += [f'%{search}%']*3
@@ -174,12 +239,21 @@ def index():
     query += " ORDER BY p.created_at DESC"
     projects   = db.execute(query, params).fetchall()
     categories = db.execute("SELECT DISTINCT category FROM projects WHERE is_active=1 AND category IS NOT NULL").fetchall()
-    auctions   = db.execute("""
-        SELECT a.*, p.title as project_title,
-            (SELECT COUNT(*) FROM auction_interests WHERE auction_id=a.id) as interest_count
+    auction_rows = db.execute("""
+        SELECT a.*, p.title as project_title, p.category,
+            (SELECT filename FROM screenshots WHERE project_id=p.id LIMIT 1) as thumb,
+            (SELECT COUNT(*) FROM auction_bids WHERE auction_id=a.id) as bid_count,
+            (SELECT MAX(amount) FROM auction_bids WHERE auction_id=a.id) as current_bid,
+            (SELECT u.username FROM auction_bids b JOIN users u ON b.user_id=u.id
+             WHERE b.auction_id=a.id ORDER BY b.amount DESC LIMIT 1) as top_bidder
         FROM auctions a JOIN projects p ON a.project_id=p.id
-        WHERE a.is_active=1 ORDER BY a.opens_at ASC
+        ORDER BY a.starts_at ASC LIMIT 4
     """).fetchall()
+    auctions = []
+    for a in auction_rows:
+        d = dict(a)
+        d['live_status'] = auction_status(a)
+        auctions.append(d)
     return render_template('index.html', projects=projects, categories=categories,
                            search=search, selected_cat=category, auctions=auctions)
 
@@ -206,10 +280,13 @@ def project_detail(pid):
     base_price  = project['price']
     vat_amount  = round(base_price * VAT_RATE, 2)
     total_price = round(base_price + vat_amount, 2)
+    active_auction = get_active_auction(db, pid)
+    ended_auction  = get_ended_auction_winner(db, pid) if not active_auction else None
     return render_template('project_detail.html', project=project,
                            screenshots=screenshots, buyers=buyers,
                            user_bought=user_bought, user_order=user_order,
-                           sold_out=sold_out, vat_amount=vat_amount, total_price=total_price)
+                           sold_out=sold_out, vat_amount=vat_amount, total_price=total_price,
+                           active_auction=active_auction, ended_auction=ended_auction)
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
@@ -242,7 +319,7 @@ def login():
             session['user_id']  = user['id']
             session['username'] = user['username']
             session['is_admin'] = bool(user['is_admin'])
-            session['avatar'] = user['avatar'] or ''
+            session['avatar']   = user['avatar'] or ''
             return redirect(next_url)
         flash('Invalid credentials.', 'error')
     return render_template('login.html', next=next_url)
@@ -282,7 +359,6 @@ def profile_edit():
                 fn = secure_filename(f'{uuid.uuid4()}_{f.filename}')
                 f.save(os.path.join(UPLOAD_AVATARS, fn))
                 avatar = fn
-        # Change password
         new_pass = request.form.get('new_password','').strip()
         if new_pass:
             if not check_password_hash(user['password'], request.form.get('current_password','')):
@@ -295,7 +371,7 @@ def profile_edit():
                 (username, bio, avatar, session['user_id']))
         db.commit()
         session['username'] = username
-        session['avatar'] = avatar or ''
+        session['avatar']   = avatar or ''
         flash('Profile updated!', 'success')
         return redirect(url_for('profile'))
     return render_template('profile_edit.html', user=user)
@@ -316,6 +392,24 @@ def buy(pid):
     project = db.execute("SELECT * FROM projects WHERE id=? AND is_active=1", (pid,)).fetchone()
     if not project:
         return redirect(url_for('index'))
+
+    # Block if project is on active auction
+    active_auction = get_active_auction(db, pid)
+    if active_auction:
+        flash('This project is currently in an active auction — join the auction to get it!', 'error')
+        return redirect(url_for('auction_detail', aid=active_auction['id']))
+
+    # Handle ended auction — only winner can buy, at winning price
+    ended_auction = get_ended_auction_winner(db, pid)
+    is_auction_winner = (
+        ended_auction is not None and
+        ended_auction['winner_id'] is not None and
+        int(ended_auction['winner_id']) == int(session['user_id'])
+    )
+    if ended_auction and not is_auction_winner:
+        flash(f'This project was won at auction by {ended_auction["winner_username"]}. Waiting for their payment.', 'error')
+        return redirect(url_for('project_detail', pid=pid))
+
     owner = db.execute(
         "SELECT o.*, u.username FROM orders o JOIN users u ON o.user_id=u.id WHERE o.project_id=? AND o.status='approved'",
         (pid,)).fetchone()
@@ -327,12 +421,20 @@ def buy(pid):
         (session['user_id'], pid)).fetchone()
     if existing and existing['status'] == 'approved':
         return redirect(url_for('my_orders'))
-    base_price  = project['price']
-    vat_amount  = round(base_price * VAT_RATE, 2)
-    total_price = round(base_price + vat_amount, 2)
-    note        = f"PyMarket-{project['title'][:20]}"
-    qr_url      = gcash_qr_url(total_price, note)
-    deep_link   = gcash_deep_link(total_price, note)
+
+    # Use winning bid amount if auction winner, otherwise normal price
+    if is_auction_winner:
+        base_price  = ended_auction['winning_amount']
+        vat_amount  = round(base_price * VAT_RATE, 2)
+        total_price = round(base_price + vat_amount, 2)
+        note        = f"AuctionWin-{project['title'][:15]}"
+    else:
+        base_price  = project['price']
+        vat_amount  = round(base_price * VAT_RATE, 2)
+        total_price = round(base_price + vat_amount, 2)
+        note        = f"PyMarket-{project['title'][:20]}"
+
+    qr_url = gcash_qr_url(total_price, note)
     if request.method == 'POST':
         gcash_ref  = request.form.get('gcash_ref','').strip()
         payment_ss = None
@@ -351,8 +453,8 @@ def buy(pid):
         return redirect(url_for('my_orders'))
     return render_template('buy.html', project=project, existing=existing,
                            base_price=base_price, vat_amount=vat_amount, total_price=total_price,
-                           qr_url=qr_url, deep_link=deep_link,
-                           gcash_number=GCASH_NUMBER, gcash_name=GCASH_NAME)
+                           qr_url=qr_url, gcash_number=GCASH_NUMBER, gcash_name=GCASH_NAME,
+                           is_auction_winner=is_auction_winner, ended_auction=ended_auction)
 
 @app.route('/my-orders')
 @login_required
@@ -398,37 +500,134 @@ def view_source(order_id):
 @app.route('/auctions')
 def auctions():
     db = get_db()
-    auctions = db.execute("""
-        SELECT a.*, p.title as project_title, p.category,
+    rows = db.execute("""
+        SELECT a.*, p.title as project_title, p.category, p.description as project_desc,
             (SELECT filename FROM screenshots WHERE project_id=p.id LIMIT 1) as thumb,
-            (SELECT COUNT(*) FROM auction_interests WHERE auction_id=a.id) as interest_count,
-            CASE WHEN ? IS NOT NULL THEN
-                (SELECT COUNT(*) FROM auction_interests WHERE auction_id=a.id AND user_id=?)
-            ELSE 0 END as user_interested
+            (SELECT COUNT(*) FROM auction_bids WHERE auction_id=a.id) as bid_count,
+            (SELECT MAX(amount) FROM auction_bids WHERE auction_id=a.id) as current_bid,
+            (SELECT u.username FROM auction_bids b JOIN users u ON b.user_id=u.id
+             WHERE b.auction_id=a.id ORDER BY b.amount DESC LIMIT 1) as top_bidder
         FROM auctions a JOIN projects p ON a.project_id=p.id
-        WHERE a.is_active=1 ORDER BY a.opens_at ASC
-    """, (session.get('user_id'), session.get('user_id'))).fetchall()
-    return render_template('auctions.html', auctions=auctions)
+        ORDER BY a.starts_at ASC
+    """).fetchall()
+    auctions_list = []
+    for a in rows:
+        d = dict(a)
+        d['live_status'] = auction_status(a)
+        auctions_list.append(d)
+    return render_template('auctions.html', auctions=auctions_list)
 
-@app.route('/auction/<int:aid>/interest', methods=['POST'])
-@login_required
-def toggle_interest(aid):
-    if session.get('is_admin'):
-        return jsonify({'ok': False, 'msg': 'Admins cannot join auctions'})
+@app.route('/auction/<int:aid>')
+def auction_detail(aid):
     db = get_db()
-    existing = db.execute("SELECT * FROM auction_interests WHERE auction_id=? AND user_id=?",
-        (aid, session['user_id'])).fetchone()
-    if existing:
-        db.execute("DELETE FROM auction_interests WHERE auction_id=? AND user_id=?",
-            (aid, session['user_id']))
-        interested = False
-    else:
-        db.execute("INSERT INTO auction_interests (auction_id, user_id) VALUES (?,?)",
-            (aid, session['user_id']))
-        interested = True
+    a = db.execute("""
+        SELECT a.*, p.title as project_title, p.category, p.description as project_desc,
+            p.tech_stack,
+            (SELECT filename FROM screenshots WHERE project_id=p.id LIMIT 1) as thumb,
+            (SELECT COUNT(*) FROM auction_bids WHERE auction_id=a.id) as bid_count,
+            (SELECT MAX(amount) FROM auction_bids WHERE auction_id=a.id) as current_bid,
+            (SELECT u.username FROM auction_bids b JOIN users u ON b.user_id=u.id
+             WHERE b.auction_id=a.id ORDER BY b.amount DESC LIMIT 1) as top_bidder
+        FROM auctions a JOIN projects p ON a.project_id=p.id WHERE a.id=?
+    """, (aid,)).fetchone()
+    if not a:
+        return redirect(url_for('auctions'))
+    bids = db.execute("""
+        SELECT b.*, u.username FROM auction_bids b
+        JOIN users u ON b.user_id=u.id
+        WHERE b.auction_id=? ORDER BY b.amount DESC
+    """, (aid,)).fetchall()
+    live_status = auction_status(a)
+    user_bid = None
+    if session.get('user_id'):
+        user_bid = db.execute(
+            "SELECT MAX(amount) as amt FROM auction_bids WHERE auction_id=? AND user_id=?",
+            (aid, session['user_id'])).fetchone()
+    min_bid = round((a['current_bid'] or a['start_price']) + a['min_increment'], 2)
+    # For ended auctions — check if current user is the winner
+    is_winner = False
+    winner_paid = False
+    if live_status == 'ended' and session.get('user_id') and a['bid_count'] and a['bid_count'] > 0:
+        top_bid = db.execute(
+            "SELECT user_id FROM auction_bids WHERE auction_id=? ORDER BY amount DESC LIMIT 1", (aid,)).fetchone()
+        if top_bid and int(top_bid['user_id']) == int(session['user_id']):
+            is_winner = True
+            # Check if winner already submitted payment
+            paid = db.execute(
+                "SELECT id FROM orders WHERE project_id=? AND user_id=? AND status IN ('pending','approved')",
+                (a['project_id'], session['user_id'])).fetchone()
+            winner_paid = paid is not None
+    return render_template('auction_detail.html', a=dict(a), bids=bids,
+                           live_status=live_status, min_bid=min_bid, user_bid=user_bid,
+                           is_winner=is_winner, winner_paid=winner_paid)
+
+@app.route('/auction/<int:aid>/bid', methods=['POST'])
+@login_required
+def place_bid(aid):
+    if session.get('is_admin'):
+        return jsonify({'ok': False, 'msg': 'Admins cannot bid.'})
+    db = get_db()
+    a = db.execute("SELECT * FROM auctions WHERE id=?", (aid,)).fetchone()
+    if not a:
+        return jsonify({'ok': False, 'msg': 'Auction not found.'})
+    now = datetime.now().isoformat()
+    if now < a['starts_at']:
+        return jsonify({'ok': False, 'msg': 'Auction has not started yet.'})
+    if now > a['ends_at']:
+        return jsonify({'ok': False, 'msg': 'Auction has already ended.'})
+    try:
+        amount = float(request.form.get('amount', 0))
+    except ValueError:
+        return jsonify({'ok': False, 'msg': 'Invalid bid amount.'})
+    current = db.execute("SELECT MAX(amount) as m FROM auction_bids WHERE auction_id=?", (aid,)).fetchone()['m']
+    floor = (current or a['start_price']) + a['min_increment']
+    if amount < floor:
+        return jsonify({'ok': False, 'msg': f'Minimum bid is ₱{floor:.2f}'})
+    db.execute("INSERT INTO auction_bids (auction_id, user_id, amount) VALUES (?,?,?)",
+        (aid, session['user_id'], amount))
     db.commit()
-    count = db.execute("SELECT COUNT(*) as c FROM auction_interests WHERE auction_id=?", (aid,)).fetchone()['c']
-    return jsonify({'ok': True, 'interested': interested, 'count': count})
+    top = db.execute("""
+        SELECT b.amount, u.username FROM auction_bids b JOIN users u ON b.user_id=u.id
+        WHERE b.auction_id=? ORDER BY b.amount DESC LIMIT 1
+    """, (aid,)).fetchone()
+    count = db.execute("SELECT COUNT(*) as c FROM auction_bids WHERE auction_id=?", (aid,)).fetchone()['c']
+    bids = db.execute("""
+        SELECT b.amount, u.username, b.created_at FROM auction_bids b
+        JOIN users u ON b.user_id=u.id WHERE b.auction_id=? ORDER BY b.amount DESC LIMIT 10
+    """, (aid,)).fetchall()
+    return jsonify({
+        'ok': True,
+        'current_bid': top['amount'],
+        'top_bidder': top['username'],
+        'bid_count': count,
+        'bids': [{'amount': b['amount'], 'username': b['username'], 'time': b['created_at'][11:16]} for b in bids]
+    })
+
+@app.route('/auction/<int:aid>/status')
+def auction_status_api(aid):
+    db = get_db()
+    a = db.execute("SELECT * FROM auctions WHERE id=?", (aid,)).fetchone()
+    if not a:
+        return jsonify({'ok': False})
+    top = db.execute("""
+        SELECT b.amount, u.username FROM auction_bids b JOIN users u ON b.user_id=u.id
+        WHERE b.auction_id=? ORDER BY b.amount DESC LIMIT 1
+    """, (aid,)).fetchone()
+    count = db.execute("SELECT COUNT(*) as c FROM auction_bids WHERE auction_id=?", (aid,)).fetchone()['c']
+    bids = db.execute("""
+        SELECT b.amount, u.username, b.created_at FROM auction_bids b
+        JOIN users u ON b.user_id=u.id WHERE b.auction_id=? ORDER BY b.amount DESC LIMIT 10
+    """, (aid,)).fetchall()
+    return jsonify({
+        'ok': True,
+        'current_bid': top['amount'] if top else None,
+        'top_bidder': top['username'] if top else None,
+        'bid_count': count,
+        'live_status': auction_status(a),
+        'ends_at': a['ends_at'],
+        'now': datetime.now().isoformat(),
+        'bids': [{'amount': b['amount'], 'username': b['username'], 'time': b['created_at'][11:16]} for b in bids]
+    })
 
 # ── Chat ──────────────────────────────────────────────────────────────────────
 
@@ -486,7 +685,7 @@ def admin_dashboard():
         'pending':      db.execute("SELECT COUNT(*) as c FROM orders WHERE status='pending'").fetchone()['c'],
         'revenue':      db.execute("SELECT COALESCE(SUM(amount),0) as s FROM orders WHERE status='approved'").fetchone()['s'],
         'unread_chats': db.execute("SELECT COUNT(DISTINCT user_id) as c FROM chats WHERE is_admin_reply=0").fetchone()['c'],
-        'auctions':     db.execute("SELECT COUNT(*) as c FROM auctions WHERE is_active=1").fetchone()['c'],
+        'auctions':     db.execute("SELECT COUNT(*) as c FROM auctions").fetchone()['c'],
     }
     pending_orders = db.execute('''
         SELECT o.*, u.username, u.email, p.title, p.category FROM orders o
@@ -616,30 +815,43 @@ def view_payment_proof(filename):
 def admin_auctions():
     db=get_db()
     if request.method=='POST':
-        pid       = int(request.form['project_id'])
-        title     = request.form['title']
-        desc      = request.form['description']
-        opens_at  = request.form['opens_at']
-        db.execute("INSERT INTO auctions (project_id,title,description,opens_at) VALUES (?,?,?,?)",
-            (pid,title,desc,opens_at))
+        pid         = int(request.form['project_id'])
+        title       = request.form['title']
+        desc        = request.form['description']
+        start_price = float(request.form['start_price'])
+        min_inc     = float(request.form.get('min_increment', 10))
+        starts_at   = request.form['starts_at']
+        ends_at     = request.form['ends_at']
+        db.execute("""INSERT INTO auctions
+            (project_id,title,description,start_price,min_increment,starts_at,ends_at,status)
+            VALUES (?,?,?,?,?,?,?,'upcoming')""",
+            (pid,title,desc,start_price,min_inc,starts_at,ends_at))
         db.commit(); flash('Auction created!','success')
         return redirect(url_for('admin_auctions'))
-    auctions = db.execute("""
+    auction_rows = db.execute("""
         SELECT a.*, p.title as project_title,
-            (SELECT COUNT(*) FROM auction_interests WHERE auction_id=a.id) as interest_count
-        FROM auctions a JOIN projects p ON a.project_id=p.id ORDER BY a.opens_at ASC
+            (SELECT COUNT(*) FROM auction_bids WHERE auction_id=a.id) as bid_count,
+            (SELECT MAX(amount) FROM auction_bids WHERE auction_id=a.id) as current_bid,
+            (SELECT u.username FROM auction_bids b JOIN users u ON b.user_id=u.id
+             WHERE b.auction_id=a.id ORDER BY b.amount DESC LIMIT 1) as top_bidder
+        FROM auctions a JOIN projects p ON a.project_id=p.id ORDER BY a.starts_at DESC
     """).fetchall()
+    auctions_list = []
+    for a in auction_rows:
+        d = dict(a)
+        d['live_status'] = auction_status(a)
+        auctions_list.append(d)
     projects = db.execute("SELECT id,title FROM projects WHERE is_active=1").fetchall()
-    return render_template('admin/auctions.html', auctions=auctions, projects=projects)
+    return render_template('admin/auctions.html', auctions=auctions_list, projects=projects)
 
-@app.route('/admin/auction/<int:aid>/toggle')
+@app.route('/admin/auction/<int:aid>/delete')
 @login_required
 @admin_required
-def toggle_auction(aid):
+def delete_auction(aid):
     db=get_db()
-    a=db.execute("SELECT * FROM auctions WHERE id=?",(aid,)).fetchone()
-    db.execute("UPDATE auctions SET is_active=? WHERE id=?",(0 if a['is_active'] else 1, aid))
-    db.commit()
+    db.execute("DELETE FROM auction_bids WHERE auction_id=?",(aid,))
+    db.execute("DELETE FROM auctions WHERE id=?",(aid,))
+    db.commit(); flash('Auction deleted.','success')
     return redirect(url_for('admin_auctions'))
 
 @app.route('/admin/chats')
@@ -686,4 +898,4 @@ def admin_chat_user(user_id):
 
 if __name__ == '__main__':
     init_db()
-    app.run(debug=True)
+    app.run(debug=False)

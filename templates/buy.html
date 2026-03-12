@@ -23,6 +23,14 @@
   <div class="flash info" style="margin-bottom:1.3rem">⏳ Pending order (Ref: <strong>{{ existing['order_ref'] }}</strong>) — waiting for admin approval.</div>
   {% endif %}
 
+  {% if is_auction_winner %}
+  <div style="background:rgba(255,209,102,.1);border:1px solid rgba(255,209,102,.3);border-radius:12px;padding:1.2rem;margin-bottom:1.3rem;text-align:center">
+    <div style="font-size:1.8rem;margin-bottom:.3rem">🏆</div>
+    <div style="font-weight:700;color:var(--yellow);font-size:1rem">Congratulations! You won the auction!</div>
+    <div style="color:var(--muted);font-size:.85rem;margin-top:.3rem">Pay your winning bid via GCash below to receive the project.</div>
+  </div>
+  {% endif %}
+
   <div class="vat-breakdown">
     <div class="vat-row"><span>Base price</span><span>₱{{ "%.2f"|format(base_price) }}</span></div>
     <div class="vat-row"><span>VAT (0.5%)</span><span>₱{{ "%.2f"|format(vat_amount) }}</span></div>
@@ -40,27 +48,20 @@
     <div class="qr-wrap">
       <img src="{{ qr_url }}" alt="GCash QR Code" loading="lazy">
     </div>
-    <div style="font-size:.78rem;color:var(--muted);margin-bottom:.8rem">Scan QR with your GCash app</div>
+    <div style="font-size:.78rem;color:var(--muted);margin-bottom:.8rem">Scan QR with your GCash app camera</div>
 
-    <!-- Pay directly button -->
-    <div class="pay-methods">
-      <a href="{{ deep_link }}" class="btn btn-primary" target="_blank" rel="noopener">
-        📱 Open GCash App
-      </a>
-      <a href="{{ deep_link }}" class="btn btn-outline" target="_blank" rel="noopener">
-        🔗 GCash Link
-      </a>
+    <div style="background:rgba(0,179,255,.08);border:1px solid rgba(0,179,255,.2);border-radius:10px;padding:1rem;margin-top:.5rem;text-align:left">
+      <div style="font-weight:700;font-size:.88rem;margin-bottom:.5rem">📱 How to pay on mobile:</div>
+      <ol style="color:var(--muted);font-size:.83rem;padding-left:1.2rem;line-height:2.1;margin:0">
+        <li>Open your <strong style="color:var(--text)">GCash app</strong></li>
+        <li>Tap <strong style="color:var(--text)">Send Money → GCash</strong></li>
+        <li>Enter number: <strong style="color:#00b3ff">{{ gcash_number }}</strong></li>
+        <li>Enter amount: <strong style="color:var(--green)">₱{{ "%.2f"|format(total_price) }}</strong></li>
+        <li>Screenshot the receipt and upload below</li>
+      </ol>
     </div>
-    <div style="font-size:.75rem;color:var(--muted)">Include your email in the GCash note</div>
+    <div style="font-size:.75rem;color:var(--muted);margin-top:.7rem">Include your email in the GCash note</div>
   </div>
-
-  <ol class="steps">
-    <li>Scan the QR code above OR tap <strong>Open GCash App</strong></li>
-    <li>Send exactly <strong>₱{{ "%.2f"|format(total_price) }}</strong> to {{ gcash_number }}</li>
-    <li>Screenshot your GCash receipt</li>
-    <li>Fill in your reference number below and upload the screenshot</li>
-    <li>Admin verifies and approves — usually within a few hours</li>
-  </ol>
 
   <div class="form-card" style="max-width:100%">
     <form method="POST" enctype="multipart/form-data">

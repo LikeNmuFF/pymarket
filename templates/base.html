@@ -226,8 +226,7 @@ footer{text-align:center;padding:1.8rem 1rem;color:var(--muted);font-size:.82rem
 <body>
 <nav>
   <div class="nav-inner">
-    <a href="{{ url_for('index') }}" class="nav-logo">
-    <img src="{{ url_for('static', filename='logo.svg')}}" alt="pymarket logo" height="36px" style="height: 36px:auto;vertical-align: middle;"> PyMarket</a>
+    <a href="{{ url_for('index') }}" class="nav-logo"><img src="{{ url_for('static', filename='logo.svg')}}" height=36px alt='logo' style="height=36px:auto;vertical-align: middle;"> PyMarket</a>
     <div class="nav-links">
       <a href="{{ url_for('index') }}" class="nav-link">Browse</a>
       <a href="{{ url_for('auctions') }}" class="nav-link">🏷 Auctions</a>
@@ -244,16 +243,12 @@ footer{text-align:center;padding:1.8rem 1rem;color:var(--muted);font-size:.82rem
       <div class="theme-toggle" onclick="toggleTheme()">
         <button class="theme-btn" id="btn-dark">🌙</button>
         <button class="theme-btn" id="btn-light">☀️</button>
-        
       </div>
       {% if session.get('user_id') %}
-    <a href="{{ url_for('profile') }}" class="nav-avatar" title="{{ session.username }}" id="nav-avatar-link">
-      {% if session.get('avatar') %}
-        <img src="{{ url_for('serve_avatar', filename=session['avatar']) }}" alt="{{ session.username }}">
-      {% else %}
-        {{ session.username[0].upper() }}
-      {% endif %}
-    </a>
+        <a href="{{ url_for('profile') }}" class="nav-avatar" title="{{ session.username }}">
+          {# avatar shown via JS below if set #}
+          {{ session.username[0].upper() }}
+        </a>
         <a href="{{ url_for('logout') }}" class="nav-btn outline" style="display:none" id="nav-logout">Logout</a>
       {% else %}
         <a href="{{ url_for('login') }}" class="nav-btn outline">Login</a>
@@ -315,7 +310,7 @@ footer{text-align:center;padding:1.8rem 1rem;color:var(--muted);font-size:.82rem
   </div>
 </div>
 
-<footer>© 2024 PyMarket · Python Projects Marketplace · GCash Payments · 0.5% VAT</footer>
+<footer>© 2026 PyMarket · Python Projects Marketplace · GCash Payments · 0.5% VAT</footer>
 
 <script>
 function requireLogin(href){

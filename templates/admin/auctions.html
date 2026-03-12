@@ -1,5 +1,14 @@
 {% extends 'base.html' %}
 {% block title %}Manage Auctions{% endblock %}
+{% block extra_css %}
+<style>
+.status-live{color:var(--green);background:rgba(0,214,143,.1);border:1px solid rgba(0,214,143,.25)}
+.status-upcoming{color:var(--yellow);background:rgba(255,209,102,.1);border:1px solid rgba(255,209,102,.25)}
+.status-ended{color:var(--muted);background:rgba(136,136,153,.08);border:1px solid var(--border)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:.9rem}
+@media(max-width:600px){.form-grid{grid-template-columns:1fr}}
+</style>
+{% endblock %}
 {% block content %}
 <div class="container">
   <h1 class="page-title">🏷 Manage Auctions</h1>
@@ -10,32 +19,57 @@
     <a href="{{ url_for('admin_auctions') }}" class="active">🏷 Auctions</a>
     <a href="{{ url_for('admin_chats') }}">💬 Chats</a>
   </div>
-  <div style="display:grid;grid-template-columns:1fr 360px;gap:1.8rem;align-items:start">
+
+  <div style="display:grid;grid-template-columns:1fr 380px;gap:2rem;align-items:start">
+    <!-- LEFT: List -->
     <div>
+      <h2 style="font-size:1rem;font-weight:700;margin-bottom:1rem">All Auctions ({{ auctions|length }})</h2>
       {% if auctions %}
       <div style="display:flex;flex-direction:column;gap:.9rem">
         {% for a in auctions %}
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.2rem">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.3rem{% if a['live_status']=='live' %};border-color:rgba(0,214,143,.3){% endif %}">
           <div style="display:flex;align-items:flex-start;gap:.8rem;flex-wrap:wrap">
             <div style="flex:1;min-width:160px">
-              <div style="font-weight:700">{{ a['title'] }}</div>
-              <div style="color:var(--muted);font-size:.83rem">{{ a['project_title'] }}</div>
-              <div style="color:var(--muted);font-size:.78rem;margin-top:.3rem">Opens: {{ a['opens_at'][:16] }}</div>
+              <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.35rem">
+                <span class="badge status-{{ a['live_status'] }}">
+                  {% if a['live_status']=='live' %}🟢 LIVE{% elif a['live_status']=='upcoming' %}⏳ Upcoming{% else %}✅ Ended{% endif %}
+                </span>
+              </div>
+              <div style="font-weight:700;font-size:.97rem">{{ a['title'] }}</div>
+              <div style="color:var(--muted);font-size:.82rem">{{ a['project_title'] }}</div>
+              <div style="color:var(--muted);font-size:.77rem;margin-top:.3rem">
+                📅 {{ a['starts_at'][:16].replace('T',' ') if a['starts_at'] }} → {{ a['ends_at'][:16].replace('T',' ') if a['ends_at'] }}
+              </div>
+              <div style="font-size:.78rem;margin-top:.25rem;color:var(--muted)">
+                Start price: <strong style="color:var(--text)">₱{{ "%.2f"|format(a['start_price']) }}</strong> &nbsp;|&nbsp;
+                Min +: <strong style="color:var(--text)">₱{{ "%.2f"|format(a['min_increment']) }}</strong>
+              </div>
             </div>
-            <span class="badge badge-tech">{{ a['interest_count'] }} interested</span>
-            {% if a['is_active'] %}<span class="badge badge-green">Active</span>{% else %}<span class="badge badge-red">Hidden</span>{% endif %}
-            <a href="{{ url_for('toggle_auction',aid=a['id']) }}" class="btn btn-outline btn-sm">{{ 'Hide' if a['is_active'] else 'Show' }}</a>
+            <div style="text-align:right;flex-shrink:0">
+              <div style="font-family:var(--display);font-weight:800;font-size:1.2rem;color:{% if a['live_status']=='live' %}var(--green){% else %}var(--accent){% endif %}">
+                ₱{{ "%.2f"|format(a['current_bid'] or a['start_price']) }}
+              </div>
+              <div style="font-size:.75rem;color:var(--muted)">{{ a['bid_count'] }} bids</div>
+              {% if a['top_bidder'] %}<div style="font-size:.75rem;color:var(--muted)">Top: <strong style="color:var(--text)">{{ a['top_bidder'] }}</strong></div>{% endif %}
+            </div>
+          </div>
+          <div style="display:flex;gap:.4rem;margin-top:.9rem;flex-wrap:wrap">
+            <a href="{{ url_for('auction_detail', aid=a['id']) }}" class="btn btn-outline btn-sm" target="_blank">👁 View</a>
+            <a href="{{ url_for('delete_auction', aid=a['id']) }}" class="btn btn-danger btn-sm"
+               onclick="return confirm('Delete this auction and all bids?')">🗑 Delete</a>
           </div>
         </div>
         {% endfor %}
       </div>
       {% else %}
-      <div class="empty"><div class="empty-icon">🏷</div><div>No auctions yet.</div></div>
+      <div class="empty" style="padding:2.5rem"><div class="empty-icon">🏷</div><div>No auctions yet. Create one →</div></div>
       {% endif %}
     </div>
+
+    <!-- RIGHT: Create form -->
     <div>
-      <div class="form-card" style="max-width:100%">
-        <div style="font-family:var(--display);font-size:1.1rem;font-weight:800;margin-bottom:1.2rem">+ New Auction</div>
+      <div class="form-card" style="max-width:100%;position:sticky;top:72px">
+        <div style="font-family:var(--display);font-size:1.15rem;font-weight:800;margin-bottom:1.3rem">🚀 Create New Auction</div>
         <form method="POST">
           <div class="form-group">
             <label>Project *</label>
@@ -44,11 +78,37 @@
               {% for p in projects %}<option value="{{ p['id'] }}">{{ p['title'] }}</option>{% endfor %}
             </select>
           </div>
-          <div class="form-group"><label>Auction Title *</label><input type="text" name="title" placeholder="e.g. Exclusive Launch" required></div>
-          <div class="form-group"><label>Description</label><textarea name="description" placeholder="What buyers can expect..."></textarea></div>
-          <div class="form-group"><label>Opens At *</label><input type="datetime-local" name="opens_at" required></div>
-          <button type="submit" class="btn btn-primary btn-full">🚀 Create Auction</button>
+          <div class="form-group">
+            <label>Auction Title *</label>
+            <input type="text" name="title" placeholder="e.g. Exclusive Launch Auction" required>
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <textarea name="description" placeholder="What makes this auction special..." rows="3"></textarea>
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Starting Price (₱) *</label>
+              <input type="number" name="start_price" min="0" step="0.01" placeholder="500.00" required>
+            </div>
+            <div class="form-group">
+              <label>Min Bid Increment (₱)</label>
+              <input type="number" name="min_increment" min="1" step="1" value="10" placeholder="10">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Starts At *</label>
+            <input type="datetime-local" name="starts_at" required>
+          </div>
+          <div class="form-group">
+            <label>Ends At *</label>
+            <input type="datetime-local" name="ends_at" required>
+          </div>
+          <button type="submit" class="btn btn-primary btn-full">🏷 Create Auction</button>
         </form>
+        <div style="margin-top:.9rem;padding:.8rem;background:var(--surface2);border-radius:8px;font-size:.78rem;color:var(--muted);line-height:1.6">
+          💡 Auction goes <strong style="color:var(--text)">live</strong> automatically at start time. Users can bid in real time. Timer counts down on the page.
+        </div>
       </div>
     </div>
   </div>

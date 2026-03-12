@@ -67,6 +67,18 @@
         {% elif sold_out %}
           <div style="background:rgba(255,101,132,.1);border:1px solid rgba(255,101,132,.22);border-radius:9px;padding:.9rem;margin-bottom:.9rem;text-align:center;color:var(--accent2);font-weight:600;font-size:.9rem">🔒 Already sold</div>
           <button class="btn btn-outline btn-full" disabled>Sold Out</button>
+        {% elif active_auction %}
+          <div style="background:rgba(255,209,102,.1);border:1px solid rgba(255,209,102,.25);border-radius:9px;padding:.9rem;margin-bottom:.9rem;text-align:center;color:var(--yellow);font-weight:600;font-size:.88rem">🏷 Currently on Auction</div>
+          <a href="{{ url_for('auction_detail', aid=active_auction['id']) }}" class="btn btn-warning btn-full" style="margin-bottom:.5rem">🔨 Go to Auction — Bid Now</a>
+        {% elif ended_auction %}
+          {% if session.get('user_id') and ended_auction['winner_id']|int == session.get('user_id')|int %}
+            <div style="background:rgba(255,209,102,.1);border:1px solid rgba(255,209,102,.3);border-radius:9px;padding:.9rem;margin-bottom:.9rem;text-align:center;color:var(--yellow);font-weight:700">🏆 You won the auction!</div>
+            <a href="{{ url_for('buy', pid=project['id']) }}" class="btn btn-primary btn-full" style="margin-bottom:.5rem">💳 Pay Winning Bid via GCash</a>
+          {% else %}
+            <div style="background:rgba(136,136,153,.08);border:1px solid var(--border);border-radius:9px;padding:.9rem;text-align:center;color:var(--muted);font-size:.88rem">
+              🏁 Auction ended — awaiting winner payment
+            </div>
+          {% endif %}
         {% else %}
           <a href="#" onclick="requireLogin('{{ url_for('buy',pid=project['id']) }}')" class="btn btn-primary btn-full" style="margin-bottom:.5rem">💳 Buy via GCash</a>
           <a href="#" onclick="requireLogin('{{ url_for('chat_general') }}')" class="btn btn-outline btn-full">💬 Ask a question</a>

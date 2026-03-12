@@ -35,20 +35,20 @@
       <div class="auction-header">
         <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
           <span class="badge badge-yellow">⏳ Coming Soon</span>
-          {% if a['interest_count'] > 0 %}<span class="badge badge-tech">{{ a['interest_count'] }} interested</span>{% endif %}
+          {% if a['bid_count'] > 0 %}<span class="badge badge-tech">{{ a['bid_count'] }} bids</span>{% endif %}
         </div>
         <div style="font-weight:700;font-size:.97rem;margin-top:.5rem">{{ a['title'] }}</div>
         <div style="color:var(--muted);font-size:.8rem;margin-top:.2rem">Project: {{ a['project_title'] }}</div>
       </div>
       <div style="padding:1rem 1.2rem">
         <div style="color:var(--muted);font-size:.85rem;margin-bottom:.8rem">{{ a['description'][:100] }}{% if a['description']|length > 100 %}...{% endif %}</div>
-        <div style="font-size:.8rem;color:var(--muted);margin-bottom:.9rem">🗓 Opens: <strong style="color:var(--text)">{{ a['opens_at'][:16] }}</strong></div>
+        <div style="font-size:.8rem;color:var(--muted);margin-bottom:.9rem">🗓 Starts: <strong style="color:var(--text)">{{ a['starts_at'][:16].replace('T',' ') if a['starts_at'] }}</strong></div>
         {% if session.get('user_id') and not session.get('is_admin') %}
-        <button class="btn btn-sm btn-warning btn-full interest-btn" data-id="{{ a['id'] }}" onclick="toggleInterest({{ a['id'] }}, this)">
-          🔔 Notify Me
-        </button>
+        <a href="{{ url_for('auction_detail', aid=a['id']) }}" class="btn btn-sm btn-warning btn-full">
+          🏷 View &amp; Bid
+        </a>
         {% else %}
-        <button class="btn btn-sm btn-outline btn-full" onclick="requireLogin('')">🔔 Notify Me</button>
+        <a href="{{ url_for('auction_detail', aid=a['id']) }}" class="btn btn-sm btn-outline btn-full">👁 View Auction</a>
         {% endif %}
       </div>
     </div>
@@ -101,6 +101,7 @@
           <span style="font-size:.72rem;color:var(--muted);margin-left:.2rem">+VAT</span>
         </div>
         {% if sold_out %}<span class="badge badge-red">Unavailable</span>
+        {% elif p['on_auction'] %}<span class="badge badge-yellow">🏷 On Auction</span>
         {% else %}<span class="badge badge-green">Available</span>{% endif %}
       </div>
     </div>
@@ -117,7 +118,7 @@ async function toggleInterest(id, btn){
   {% if not session.get('user_id') %}
     document.getElementById('loginModal').classList.add('active'); return;
   {% endif %}
-  const res = await fetch(`/auction/${id}/interest`, {method:'POST'});
+  const res = await fetch(`/auction/${id}/bid`, {method:'POST'});
   const data = await res.json();
   if(data.ok){
     btn.textContent = data.interested ? `✅ Notifying (${data.count})` : `🔔 Notify Me`;

@@ -1,61 +1,81 @@
 {% extends 'base.html' %}
 {% block title %}Auctions{% endblock %}
+{% block extra_css %}
+<style>
+.status-live{background:rgba(0,214,143,.12);border:1px solid rgba(0,214,143,.3);color:var(--green)}
+.status-upcoming{background:rgba(255,209,102,.1);border:1px solid rgba(255,209,102,.28);color:var(--yellow)}
+.status-ended{background:rgba(136,136,153,.1);border:1px solid rgba(136,136,153,.25);color:var(--muted)}
+.auction-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;transition:.3s;display:flex;flex-direction:column}
+.auction-card:hover{transform:translateY(-3px);box-shadow:0 10px 32px rgba(255,209,102,.1)}
+.auction-card.live{border-color:rgba(0,214,143,.35);box-shadow:0 0 0 1px rgba(0,214,143,.15)}
+.auction-card.ended{opacity:.65}
+.live-dot{width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;animation:pulse 1.4s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
+.bid-count{font-size:.78rem;color:var(--muted)}
+.thumb{width:100%;height:160px;object-fit:cover;display:block}
+.thumb-placeholder{width:100%;height:160px;background:linear-gradient(135deg,var(--surface2),var(--border));display:flex;align-items:center;justify-content:center;font-size:3rem}
+</style>
+{% endblock %}
 {% block content %}
 <div class="container">
-  <h1 class="page-title">🏷 Upcoming Auctions</h1>
-  <p class="page-sub">Register your interest — be the first to know when these projects open for sale.</p>
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.8rem;margin-bottom:.3rem">
+    <h1 class="page-title" style="margin:0">🏷 Auctions</h1>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+      <span class="badge status-live">🟢 Live</span>
+      <span class="badge status-upcoming">⏳ Upcoming</span>
+      <span class="badge status-ended">✅ Ended</span>
+    </div>
+  </div>
+  <p class="page-sub">Bid on exclusive Python projects — winner pays via GCash.</p>
+
   {% if auctions %}
   <div class="grid">
     {% for a in auctions %}
-    <div class="auction-card">
+    <a href="{{ url_for('auction_detail', aid=a['id']) }}" class="auction-card {{ a['live_status'] }}" style="text-decoration:none;color:inherit">
       {% if a['thumb'] %}
-        <img src="{{ url_for('static',filename='uploads/screenshots/'+a['thumb']) }}" style="width:100%;height:160px;object-fit:cover;display:block">
+        <img class="thumb" src="{{ url_for('static',filename='uploads/screenshots/'+a['thumb']) }}" alt="{{ a['project_title'] }}">
       {% else %}
-        <div style="width:100%;height:160px;background:linear-gradient(135deg,var(--surface2),var(--border));display:flex;align-items:center;justify-content:center;font-size:3rem">🏷</div>
+        <div class="thumb-placeholder">🏷</div>
       {% endif %}
-      <div class="auction-header">
+      <div style="padding:1.1rem;flex:1;display:flex;flex-direction:column;gap:.5rem">
         <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
-          <span class="badge badge-yellow">⏳ Coming Soon</span>
+          {% if a['live_status']=='live' %}
+            <span class="badge status-live"><span class="live-dot"></span> LIVE</span>
+          {% elif a['live_status']=='upcoming' %}
+            <span class="badge status-upcoming">⏳ Upcoming</span>
+          {% else %}
+            <span class="badge status-ended">✅ Ended</span>
+          {% endif %}
           {% if a['category'] %}<span class="badge badge-cat">{{ a['category'] }}</span>{% endif %}
         </div>
-        <div style="font-weight:700;font-size:1rem;margin-top:.5rem">{{ a['title'] }}</div>
+        <div style="font-weight:700;font-size:.97rem">{{ a['title'] }}</div>
         <div style="color:var(--muted);font-size:.82rem">{{ a['project_title'] }}</div>
-      </div>
-      <div style="padding:1.1rem 1.2rem">
-        <div style="color:var(--muted);font-size:.85rem;margin-bottom:.9rem;line-height:1.5">{{ a['description'] }}</div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem;flex-wrap:wrap;gap:.4rem">
-          <div style="font-size:.82rem;color:var(--muted)">🗓 Opens: <strong style="color:var(--text)">{{ a['opens_at'][:16] }}</strong></div>
-          <span class="badge badge-tech">{{ a['interest_count'] }} interested</span>
+
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:auto;padding-top:.6rem;border-top:1px solid var(--border);flex-wrap:wrap;gap:.4rem">
+          <div>
+            <div style="font-size:.73rem;color:var(--muted)">{% if a['current_bid'] %}Current Bid{% else %}Starting{% endif %}</div>
+            <div style="font-family:var(--display);font-size:1.2rem;font-weight:800;color:{% if a['live_status']=='live' %}var(--green){% else %}var(--accent){% endif %}">
+              ₱{{ "%.2f"|format(a['current_bid'] or a['start_price']) }}
+            </div>
+            {% if a['top_bidder'] %}<div style="font-size:.73rem;color:var(--muted)">by {{ a['top_bidder'] }}</div>{% endif %}
+          </div>
+          <div style="text-align:right">
+            <div class="bid-count">{{ a['bid_count'] }} bid{% if a['bid_count']!=1 %}s{% endif %}</div>
+            {% if a['live_status']=='upcoming' %}
+              <div style="font-size:.75rem;color:var(--muted)">Starts {{ a['starts_at'][:16].replace('T',' ') }}</div>
+            {% elif a['live_status']=='live' %}
+              <div style="font-size:.75rem;color:var(--green)" id="cd-{{ a['id'] }}">Ends {{ a['ends_at'][:16].replace('T',' ') }}</div>
+            {% else %}
+              <div style="font-size:.75rem;color:var(--muted)">Ended {{ a['ends_at'][:10] }}</div>
+            {% endif %}
+          </div>
         </div>
-        {% if session.get('user_id') and not session.get('is_admin') %}
-        <button class="btn btn-sm btn-full {% if a['user_interested'] %}btn-success{% else %}btn-warning{% endif %} interest-btn"
-          data-id="{{ a['id'] }}" onclick="toggleInterest({{ a['id'] }}, this)">
-          {% if a['user_interested'] %}✅ Notifying me{% else %}🔔 Notify Me{% endif %}
-        </button>
-        {% else %}
-        <button class="btn btn-sm btn-outline btn-full" onclick="requireLogin('')">🔔 Notify Me</button>
-        {% endif %}
       </div>
-    </div>
+    </a>
     {% endfor %}
   </div>
   {% else %}
-  <div class="empty"><div class="empty-icon">🏷</div><div>No upcoming auctions yet. Check back soon!</div></div>
+  <div class="empty"><div class="empty-icon">🏷</div><div>No auctions yet. Check back soon!</div></div>
   {% endif %}
 </div>
-{% endblock %}
-{% block scripts %}
-<script>
-async function toggleInterest(id, btn){
-  {% if not session.get('user_id') %}
-    document.getElementById('loginModal').classList.add('active'); return;
-  {% endif %}
-  const res = await fetch(`/auction/${id}/interest`, {method:'POST'});
-  const data = await res.json();
-  if(data.ok){
-    btn.textContent = data.interested ? `✅ Notifying me` : `🔔 Notify Me`;
-    btn.className = `btn btn-sm btn-full ${data.interested?'btn-success':'btn-warning'} interest-btn`;
-  }
-}
-</script>
 {% endblock %}

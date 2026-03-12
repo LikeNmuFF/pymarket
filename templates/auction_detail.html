@@ -1,0 +1,286 @@
+{% extends 'base.html' %}
+{% block title %}{{ a['title'] }} — Auction{% endblock %}
+{% block extra_css %}
+<style>
+.auction-hero{background:linear-gradient(135deg,rgba(255,209,102,.08),rgba(255,101,132,.05));border:1px solid rgba(255,209,102,.2);border-radius:16px;padding:1.8rem;margin-bottom:1.5rem}
+.bid-layout{display:grid;grid-template-columns:1fr 340px;gap:1.8rem;align-items:start}
+@media(max-width:768px){.bid-layout{grid-template-columns:1fr}}
+.bid-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.5rem;position:sticky;top:72px}
+.current-price{font-family:var(--display);font-size:2.6rem;font-weight:800;line-height:1;margin:.4rem 0}
+.bid-row{display:flex;align-items:center;justify-content:space-between;padding:.65rem .9rem;border-radius:8px;font-size:.87rem;transition:.2s}
+.bid-row:nth-child(1){background:rgba(255,209,102,.08);border:1px solid rgba(255,209,102,.15)}
+.bid-row.mine{background:rgba(108,99,255,.07);border:1px solid rgba(108,99,255,.15)}
+.bid-row:nth-child(n+2){border-bottom:1px solid var(--border)}
+.timer{font-family:var(--mono);font-size:1.6rem;font-weight:700;letter-spacing:.04em;text-align:center;padding:.8rem;border-radius:10px;margin:.8rem 0}
+.timer.live{background:rgba(0,214,143,.08);border:1px solid rgba(0,214,143,.2);color:var(--green)}
+.timer.upcoming{background:rgba(255,209,102,.08);border:1px solid rgba(255,209,102,.2);color:var(--yellow)}
+.timer.ended{background:rgba(136,136,153,.08);border:1px solid var(--border);color:var(--muted)}
+.live-pulse{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--green);animation:pulse 1.3s infinite;margin-right:.4rem}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.bid-feed{max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:.4rem;padding:.3rem 0}
+.bid-feed::-webkit-scrollbar{width:4px}
+.bid-feed::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+</style>
+{% endblock %}
+{% block content %}
+<div class="container">
+  <a href="{{ url_for('auctions') }}" style="color:var(--muted);font-size:.88rem;display:inline-flex;align-items:center;gap:.3rem;margin-bottom:1.2rem">← All Auctions</a>
+
+  <div class="auction-hero">
+    <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.6rem">
+      {% if live_status=='live' %}
+        <span class="badge" style="background:rgba(0,214,143,.15);border:1px solid rgba(0,214,143,.3);color:var(--green)"><span class="live-pulse"></span>LIVE NOW</span>
+      {% elif live_status=='upcoming' %}
+        <span class="badge badge-yellow">⏳ Upcoming</span>
+      {% else %}
+        <span class="badge" style="background:rgba(136,136,153,.1);border:1px solid var(--border);color:var(--muted)">✅ Ended</span>
+      {% endif %}
+      {% if a['category'] %}<span class="badge badge-cat">{{ a['category'] }}</span>{% endif %}
+    </div>
+    <h1 style="font-family:var(--display);font-size:clamp(1.4rem,4vw,2rem);font-weight:800;margin-bottom:.3rem">{{ a['title'] }}</h1>
+    <div style="color:var(--muted);font-size:.9rem">Project: <strong style="color:var(--text)">{{ a['project_title'] }}</strong></div>
+  </div>
+
+  <div class="bid-layout">
+    <!-- LEFT: Info + bid history -->
+    <div>
+      {% if a['thumb'] %}
+      <img src="{{ url_for('static',filename='uploads/screenshots/'+a['thumb']) }}" style="width:100%;border-radius:12px;border:1px solid var(--border);margin-bottom:1.2rem;max-height:320px;object-fit:cover">
+      {% endif %}
+      <div style="margin-bottom:1.5rem">
+        <h3 style="font-size:.82rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:.6rem">About this project</h3>
+        <div style="color:var(--muted);font-size:.92rem;line-height:1.8">{{ a['project_desc'] }}</div>
+        {% if a['tech_stack'] %}
+        <div style="display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.8rem">
+          {% for t in a['tech_stack'].split(',') %}<span class="badge badge-tech">{{ t.strip() }}</span>{% endfor %}
+        </div>
+        {% endif %}
+      </div>
+
+      <h3 style="font-size:.82rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:.8rem">📋 Bid History (<span id="bid-count">{{ a['bid_count'] }}</span>)</h3>
+      <div class="bid-feed" id="bidFeed">
+        {% for b in bids %}
+        <div class="bid-row {% if session.get('username')==b['username'] %}mine{% endif %}">
+          <div>
+            <span style="font-weight:700">{{ b['username'] }}</span>
+            {% if loop.first %}<span class="badge badge-green" style="margin-left:.4rem;font-size:.68rem">👑 Top</span>{% endif %}
+            {% if session.get('username')==b['username'] %}<span style="font-size:.72rem;color:var(--accent);margin-left:.3rem">you</span>{% endif %}
+          </div>
+          <div style="display:flex;align-items:center;gap:.7rem">
+            <span style="font-family:var(--display);font-weight:800;color:{% if loop.first %}var(--green){% else %}var(--text){% endif %}">₱{{ "%.2f"|format(b['amount']) }}</span>
+            <span style="font-size:.73rem;color:var(--muted)">{{ b['created_at'][11:16] }}</span>
+          </div>
+        </div>
+        {% else %}
+        <div style="text-align:center;color:var(--muted);padding:2rem;font-size:.9rem" id="noBids">No bids yet — be the first! 🎯</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- RIGHT: Bid box -->
+    <div>
+      <div class="bid-box">
+        <div style="font-size:.77rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:.2rem">
+          {% if a['current_bid'] %}Current Bid{% else %}Starting Price{% endif %}
+        </div>
+        <div class="current-price" id="currentPrice" style="color:{% if live_status=='live' %}var(--green){% else %}var(--accent){% endif %}">
+          ₱{{ "%.2f"|format(a['current_bid'] or a['start_price']) }}
+        </div>
+        {% if a['top_bidder'] %}
+        <div style="font-size:.83rem;color:var(--muted);margin-bottom:.6rem">by <strong id="topBidder" style="color:var(--text)">{{ a['top_bidder'] }}</strong></div>
+        {% else %}
+        <div style="font-size:.83rem;color:var(--muted);margin-bottom:.6rem" id="topBidder">No bids yet</div>
+        {% endif %}
+
+        <!-- Countdown Timer -->
+        <div class="timer {{ live_status }}" id="timerBox">
+          {% if live_status=='upcoming' %}
+            <div style="font-size:.72rem;margin-bottom:.3rem;font-family:var(--font)">Starts in</div>
+            <span id="timerVal">--:--:--</span>
+          {% elif live_status=='live' %}
+            <div style="font-size:.72rem;margin-bottom:.3rem;font-family:var(--font)">⏱ Time left</div>
+            <span id="timerVal">--:--:--</span>
+          {% else %}
+            <div style="font-family:var(--font);font-size:.95rem">🏁 Auction ended</div>
+            {% if a['top_bidder'] %}
+            <div style="font-size:.82rem;margin-top:.3rem;font-family:var(--font)">Winner: <strong>{{ a['top_bidder'] }}</strong> — ₱{{ "%.2f"|format(a['current_bid']) }}</div>
+            {% endif %}
+          {% endif %}
+        </div>
+
+        <div style="font-size:.78rem;color:var(--muted);text-align:center;margin-bottom:.9rem">
+          📅 {{ a['starts_at'][:16].replace('T',' ') }} → {{ a['ends_at'][:16].replace('T',' ') }}
+        </div>
+        <div style="font-size:.78rem;color:var(--muted);margin-bottom:1rem;background:var(--surface2);border-radius:8px;padding:.6rem .8rem">
+          Minimum increment: <strong style="color:var(--text)">₱{{ "%.2f"|format(a['min_increment']) }}</strong> &nbsp;|&nbsp;
+          Min next bid: <strong style="color:var(--accent)" id="minBid">₱{{ "%.2f"|format(min_bid) }}</strong>
+        </div>
+
+        {% if live_status=='live' %}
+          {% if not session.get('user_id') %}
+            <button class="btn btn-primary btn-full" onclick="requireLogin('')">🔐 Login to Bid</button>
+          {% elif session.get('is_admin') %}
+            <div style="background:rgba(255,209,102,.08);border:1px solid rgba(255,209,102,.2);border-radius:9px;padding:.9rem;text-align:center;color:var(--yellow);font-size:.88rem">👑 Admins cannot bid</div>
+          {% else %}
+            <div id="bidMsg" style="display:none;padding:.6rem;border-radius:8px;font-size:.85rem;margin-bottom:.7rem;text-align:center"></div>
+            <div style="display:flex;gap:.5rem;margin-bottom:.5rem">
+              <input type="number" id="bidInput" min="{{ min_bid }}" step="1" placeholder="₱{{ "%.0f"|format(min_bid) }}" style="flex:1;font-size:1rem;font-weight:700">
+              <button class="btn btn-primary" onclick="placeBid({{ a['id'] }})">Bid!</button>
+            </div>
+            <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+              {% set cur = a['current_bid'] or a['start_price'] %}
+              <button class="btn btn-outline btn-sm" onclick="setBid({{ (cur + a['min_increment'])|round(2) }})">+₱{{ "%.0f"|format(a['min_increment']) }}</button>
+              <button class="btn btn-outline btn-sm" onclick="setBid({{ (cur + a['min_increment']*5)|round(2) }})">+₱{{ "%.0f"|format(a['min_increment']*5) }}</button>
+              <button class="btn btn-outline btn-sm" onclick="setBid({{ (cur + a['min_increment']*10)|round(2) }})">+₱{{ "%.0f"|format(a['min_increment']*10) }}</button>
+            </div>
+            {% if user_bid and user_bid['amt'] %}
+            <div style="margin-top:.8rem;font-size:.8rem;color:var(--muted);text-align:center">Your highest bid: <strong style="color:var(--accent)">₱{{ "%.2f"|format(user_bid['amt']) }}</strong></div>
+            {% endif %}
+          {% endif %}
+        {% elif live_status=='upcoming' %}
+          <div style="background:rgba(255,209,102,.08);border:1px solid rgba(255,209,102,.2);border-radius:9px;padding:1rem;text-align:center;color:var(--yellow);font-size:.9rem">⏳ Bidding opens when auction starts</div>
+        {% elif live_status=='ended' %}
+          {% if is_winner %}
+            {% if winner_paid %}
+              <div style="background:rgba(0,214,143,.1);border:1px solid rgba(0,214,143,.25);border-radius:10px;padding:1rem;text-align:center;color:var(--green);font-weight:600">
+                ✅ Payment submitted — waiting for admin approval
+              </div>
+            {% else %}
+              <div style="background:rgba(255,209,102,.1);border:1px solid rgba(255,209,102,.3);border-radius:10px;padding:1rem;margin-bottom:.9rem;text-align:center">
+                <div style="font-size:1.5rem;margin-bottom:.3rem">🏆</div>
+                <div style="font-weight:700;color:var(--yellow);font-size:.97rem">You won this auction!</div>
+                <div style="color:var(--muted);font-size:.82rem;margin-top:.2rem">Winning bid: <strong style="color:var(--green)">₱{{ "%.2f"|format(a['current_bid']) }}</strong></div>
+              </div>
+              <a href="{{ url_for('buy', pid=a['project_id']) }}" class="btn btn-primary btn-full" style="margin-bottom:.5rem">
+                💳 Pay Now via GCash
+              </a>
+              <div style="font-size:.76rem;color:var(--muted);text-align:center;margin-top:.3rem">Complete your payment to receive the project</div>
+            {% endif %}
+          {% else %}
+            <div style="background:rgba(136,136,153,.08);border:1px solid var(--border);border-radius:10px;padding:1rem;text-align:center;color:var(--muted);font-size:.88rem">
+              🏁 Auction ended
+              {% if a['top_bidder'] %}<br>Won by <strong style="color:var(--text)">{{ a['top_bidder'] }}</strong>{% endif %}
+            </div>
+          {% endif %}
+        {% endif %}
+
+        <div class="divider" style="margin:1rem 0"></div>
+        <ul style="list-style:none;font-size:.82rem;color:var(--muted);display:flex;flex-direction:column;gap:.4rem">
+          <li>🏆 Highest bidder wins</li>
+          <li>💳 Winner pays via GCash</li>
+          <li>📦 Project delivered after payment</li>
+          <li>🔒 One winner, full source code</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const ENDS_AT   = "{{ a['ends_at'] }}";
+const STARTS_AT = "{{ a['starts_at'] }}";
+const AID       = {{ a['id'] }};
+const STATUS    = "{{ live_status }}";
+const MIN_INC   = {{ a['min_increment'] }};
+
+function setBid(val){ document.getElementById('bidInput').value = val.toFixed(2); }
+
+async function placeBid(aid){
+  const inp = document.getElementById('bidInput');
+  const msg = document.getElementById('bidMsg');
+  const amount = parseFloat(inp.value);
+  if(!amount || isNaN(amount)){ showMsg('Enter a valid bid amount.','error'); return; }
+  const fd = new FormData();
+  fd.append('amount', amount);
+  const res = await fetch(`/auction/${aid}/bid`, {method:'POST', body: fd});
+  const data = await res.json();
+  if(data.ok){
+    showMsg(`✅ Bid of ₱${amount.toFixed(2)} placed!`, 'success');
+    inp.value = '';
+    updateUI(data);
+  } else {
+    showMsg(data.msg, 'error');
+  }
+}
+
+function showMsg(text, type){
+  const el = document.getElementById('bidMsg');
+  el.style.display = 'block';
+  el.style.background = type==='success' ? 'rgba(0,214,143,.1)' : 'rgba(255,101,132,.1)';
+  el.style.border = type==='success' ? '1px solid rgba(0,214,143,.25)' : '1px solid rgba(255,101,132,.25)';
+  el.style.color = type==='success' ? 'var(--green)' : 'var(--accent2)';
+  el.textContent = text;
+  setTimeout(()=>{ el.style.display='none'; }, 4000);
+}
+
+function updateUI(data){
+  if(data.current_bid){
+    document.getElementById('currentPrice').textContent = '₱'+parseFloat(data.current_bid).toFixed(2);
+    const tb = document.getElementById('topBidder');
+    if(tb) tb.textContent = 'by '+data.top_bidder;
+  }
+  if(data.bid_count !== undefined){
+    const bc = document.getElementById('bid-count');
+    if(bc) bc.textContent = data.bid_count;
+  }
+  if(data.bids){
+    const feed = document.getElementById('bidFeed');
+    const me = "{{ session.get('username','') }}";
+    feed.innerHTML = data.bids.map((b,i)=>`
+      <div class="bid-row ${b.username===me?'mine':''}">
+        <div>
+          <span style="font-weight:700">${b.username}</span>
+          ${i===0?'<span class="badge badge-green" style="margin-left:.4rem;font-size:.68rem">👑 Top</span>':''}
+          ${b.username===me?'<span style="font-size:.72rem;color:var(--accent);margin-left:.3rem">you</span>':''}
+        </div>
+        <div style="display:flex;align-items:center;gap:.7rem">
+          <span style="font-family:var(--display);font-weight:800;color:${i===0?'var(--green)':'var(--text)'}">₱${parseFloat(b.amount).toFixed(2)}</span>
+          <span style="font-size:.73rem;color:var(--muted)">${b.time}</span>
+        </div>
+      </div>`).join('');
+    // update min bid
+    const minBid = parseFloat(data.current_bid) + MIN_INC;
+    const mb = document.getElementById('minBid');
+    if(mb) mb.textContent = '₱'+minBid.toFixed(2);
+    const inp = document.getElementById('bidInput');
+    if(inp) inp.min = minBid.toFixed(2);
+  }
+}
+
+// Countdown timer
+function fmtTime(ms){
+  if(ms<=0) return '00:00:00';
+  const s=Math.floor(ms/1000), h=Math.floor(s/3600), m=Math.floor((s%3600)/60), sec=s%60;
+  return [h,m,sec].map(v=>String(v).padStart(2,'0')).join(':');
+}
+function tickTimer(){
+  const now = new Date();
+  const tv = document.getElementById('timerVal');
+  if(!tv) return;
+  if(STATUS==='live'){
+    const diff = new Date(ENDS_AT) - now;
+    tv.textContent = diff>0 ? fmtTime(diff) : '00:00:00';
+    if(diff<=0) location.reload();
+  } else if(STATUS==='upcoming'){
+    const diff = new Date(STARTS_AT) - now;
+    tv.textContent = diff>0 ? fmtTime(diff) : '00:00:00';
+    if(diff<=0) location.reload();
+  }
+}
+tickTimer();
+setInterval(tickTimer, 1000);
+
+// Poll for live updates every 5s
+{% if live_status=='live' %}
+async function pollBids(){
+  try{
+    const res = await fetch(`/auction/${AID}/status`);
+    const data = await res.json();
+    if(data.ok) updateUI(data);
+  }catch(e){}
+}
+setInterval(pollBids, 5000);
+{% endif %}
+</script>
+{% endblock %}
