@@ -1,7 +1,11 @@
 <div align="center">
 
 <!-- Animated Title -->
-<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&size=40&duration=3000&pause=1000&color=F848C6&center=true&vCenter=true&width=600&height=80&lines=🛒+PyMarket;Python+Project+Marketplace;Buy+%7C+Bid+%7C+Own" alt="PyMarket" />
+<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,11,20&height=140&section=header" width="100%"/>
+
+<img src="static/logo.svg" alt="PyMarket Logo" width="180"/>
+
+<br/>
 
 <br/>
 
@@ -33,7 +37,7 @@ Payments are handled via **GCash** 💙, making it seamless for Filipino buyers.
 <br/>
 
 <div align="center">
-<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&size=18&duration=2000&pause=500&color=10BFD2&center=true&vCenter=true&width=500&lines=🔒+One+buyer+per+project;🏷️+Live+auction+bidding;💳+GCash+payments;🤖+AI+support+bot;🌙+Dark+%26+Light+mode" alt="features" />
+<img src="https://capsule-render.vercel.app/api?type=rect&color=gradient&customColorList=12,9,2&height=50&text=🔒%20Exclusive%20Ownership%20%20%7C%20%20🏷️%20Live%20Auctions%20%20%7C%20%20💳%20GCash%20%20%7C%20%20🤖%20Bot%20%20%7C%20%20🌙%20Dark%20Mode&fontSize=14&fontColor=fff&animation=fadeIn" width="100%"/>
 </div>
 
 <br/>
@@ -51,6 +55,7 @@ Payments are handled via **GCash** 💙, making it seamless for Filipino buyers.
 <td width="50%">
 
 ### 🛒 Marketplace
+
 - Browse all projects publicly without login
 - Search by title, tech stack, or description
 - Filter by category with pill buttons
@@ -62,6 +67,7 @@ Payments are handled via **GCash** 💙, making it seamless for Filipino buyers.
 <td width="50%">
 
 ### 🏷️ Live Auctions
+
 - Real-time bidding with live countdown timer
 - Auto-updates every 5 seconds — no refresh needed
 - Quick-bid buttons (+₱10, +₱50, +₱100)
@@ -75,6 +81,7 @@ Payments are handled via **GCash** 💙, making it seamless for Filipino buyers.
 <td width="50%">
 
 ### 💳 GCash Payments
+
 - QR code generated automatically per order
 - Step-by-step payment instructions
 - Submit GCash reference + receipt screenshot
@@ -86,6 +93,7 @@ Payments are handled via **GCash** 💙, making it seamless for Filipino buyers.
 <td width="50%">
 
 ### 🤖 Smart Support Bot
+
 - Auto-replies when admin is away
 - Time-aware greetings ☀️🌤️🌙🌟
 - Answers about projects, pricing, GCash, orders, auctions
@@ -99,6 +107,7 @@ Payments are handled via **GCash** 💙, making it seamless for Filipino buyers.
 <td width="50%">
 
 ### 👤 User Profiles
+
 - Upload profile photo (avatar)
 - Shown in navbar after login
 - Edit username, bio, password
@@ -109,6 +118,7 @@ Payments are handled via **GCash** 💙, making it seamless for Filipino buyers.
 <td width="50%">
 
 ### 💬 Chat & Support
+
 - General support chat with admin
 - Per-order chat for order-specific questions
 - Bot auto-replies when admin is offline
@@ -121,6 +131,7 @@ Payments are handled via **GCash** 💙, making it seamless for Filipino buyers.
 <td width="50%">
 
 ### 🎨 UI & Design
+
 - **Dark & Light mode** toggle 🌙☀️
 - Hot pink `#f848c6` + cyan `#10bfd2` color scheme
 - Fully responsive — mobile, tablet, desktop
@@ -131,6 +142,7 @@ Payments are handled via **GCash** 💙, making it seamless for Filipino buyers.
 <td width="50%">
 
 ### 👑 Admin Panel
+
 - Dashboard with live stats
 - Manage projects — add, edit, delete, upload files
 - Approve or reject orders + view payment proofs
@@ -187,13 +199,13 @@ Payments are handled via **GCash** 💙, making it seamless for Filipino buyers.
 
 <div align="center">
 
-| | Regular Purchase | Auction Win |
-|---|---|---|
-| **Price** | Listed price + 0.5% VAT | Winning bid + 0.5% VAT |
-| **Payment** | GCash 💙 | GCash 💙 |
-| **Who can buy** | Anyone | Winner only |
-| **Access** | After admin approval | After admin approval |
-| **Ownership** | Exclusive (1 buyer) | Exclusive (1 winner) |
+|                 | Regular Purchase        | Auction Win            |
+| --------------- | ----------------------- | ---------------------- |
+| **Price**       | Listed price + 0.5% VAT | Winning bid + 0.5% VAT |
+| **Payment**     | GCash 💙                | GCash 💙               |
+| **Who can buy** | Anyone                  | Winner only            |
+| **Access**      | After admin approval    | After admin approval   |
+| **Ownership**   | Exclusive (1 buyer)     | Exclusive (1 winner)   |
 
 </div>
 
@@ -211,16 +223,16 @@ The built-in support bot automatically handles common questions when the admin i
 
 <div align="center">
 
-| Trigger Keywords | Bot Response |
-|---|---|
-| `hi`, `hello`, `hey`, `kumusta` | Time-aware greeting + intro ☀️🌙 |
-| `price`, `project`, `magkano` | Lists all available projects with prices |
-| `gcash`, `pay`, `bayad` | Step-by-step GCash payment guide 💳 |
-| `order`, `status`, `pending` | Real-time order status check 📦 |
-| `auction`, `bid`, `win` | Full auction guide 🏷️ |
-| `download`, `file`, `source` | How to access purchased projects 📥 |
-| `thank`, `salamat` | Warm thank-you reply 🙏 |
-| *(anything else)* | Friendly fallback with topic menu 🚀 |
+| Trigger Keywords                | Bot Response                             |
+| ------------------------------- | ---------------------------------------- |
+| `hi`, `hello`, `hey`, `kumusta` | Time-aware greeting + intro ☀️🌙         |
+| `price`, `project`, `magkano`   | Lists all available projects with prices |
+| `gcash`, `pay`, `bayad`         | Step-by-step GCash payment guide 💳      |
+| `order`, `status`, `pending`    | Real-time order status check 📦          |
+| `auction`, `bid`, `win`         | Full auction guide 🏷️                    |
+| `download`, `file`, `source`    | How to access purchased projects 📥      |
+| `thank`, `salamat`              | Warm thank-you reply 🙏                  |
+| _(anything else)_               | Friendly fallback with topic menu 🚀     |
 
 </div>
 
@@ -300,10 +312,10 @@ PyMarket supports both themes — toggle anytime from the navbar. Your preferenc
 
 <div align="center">
 
-| 🌙 Dark Mode | ☀️ Light Mode |
-|---|---|
-| Deep dark background | Clean white background |
-| Hot pink + cyan accents | Same accent colors |
+| 🌙 Dark Mode              | ☀️ Light Mode               |
+| ------------------------- | --------------------------- |
+| Deep dark background      | Clean white background      |
+| Hot pink + cyan accents   | Same accent colors          |
 | Easy on the eyes at night | Crisp and clean for daytime |
 
 </div>
@@ -318,10 +330,10 @@ PyMarket supports both themes — toggle anytime from the navbar. Your preferenc
 
 ## 🔐 Default Admin Credentials
 
-| Field | Value |
-|---|---|
-| Email | `admin@pymarket.com` |
-| Password | `admin123` |
+| Field    | Value                |
+| -------- | -------------------- |
+| Email    | `admin@pymarket.com` |
+| Password | `admin123`           |
 
 > ⚠️ **Change the default password and `secret_key` in `app.py` before going live!**
 
@@ -335,7 +347,7 @@ PyMarket supports both themes — toggle anytime from the navbar. Your preferenc
 
 <div align="center">
 
-<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&size=16&duration=3000&pause=1000&color=F848C6&center=true&vCenter=true&width=500&lines=Built+with+💖+in+the+Philippines+🇵🇭;Flask+%2B+SQLite+%2B+GCash+%3D+PyMarket;One+project.+One+owner.+Forever.+🔒" alt="footer" />
+<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,11,20&height=120&section=footer&text=Built%20with%20%F0%9F%96%A4%20in%20the%20Philippines&fontSize=22&fontColor=fff&animation=fadeIn&fontAlignY=65" width="100%"/>
 
 <br/><br/>
 
