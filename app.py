@@ -4,10 +4,10 @@ from werkzeug.utils import secure_filename
 import sqlite3, os, uuid, urllib.parse
 from datetime import datetime
 from functools import wraps
-import secrets
+from bot import maybe_bot_reply
 
 app = Flask(__name__)
-app.secret_key = secrets.token_hex(32)
+app.secret_key = 'your-secret-key-change-this-in-production'
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH  = os.path.join(BASE_DIR, 'market.db')
@@ -22,9 +22,9 @@ for folder in [UPLOAD_SCREENSHOTS, UPLOAD_PROJECTS, UPLOAD_PAYMENTS, UPLOAD_AVAT
 
 ALLOWED_IMG     = {'png','jpg','jpeg','gif','webp'}
 ALLOWED_PROJECT = {'zip','rar','tar','gz','py'}
-VAT_RATE        = 0.05
-GCASH_NUMBER    = '+639518346025'
-GCASH_NAME      = 'RO....O B.'
+VAT_RATE        = 0.005
+GCASH_NUMBER    = '09XX-XXX-XXXX'
+GCASH_NAME      = 'Your Name Here'
 
 def get_db():
     conn = sqlite3.connect(DB_PATH)
@@ -641,6 +641,7 @@ def chat_general():
             db.execute("INSERT INTO chats (user_id, order_id, is_admin_reply, message) VALUES (?,NULL,0,?)",
                 (session['user_id'], msg))
             db.commit()
+            maybe_bot_reply(db, session['user_id'], msg, order_id=None)
         return redirect(url_for('chat_general'))
     messages = db.execute("""
         SELECT c.*, u.username FROM chats c JOIN users u ON c.user_id=u.id
@@ -664,6 +665,7 @@ def chat_order(order_id):
             db.execute("INSERT INTO chats (user_id, order_id, is_admin_reply, message) VALUES (?,?,0,?)",
                 (session['user_id'], order_id, msg))
             db.commit()
+            maybe_bot_reply(db, session['user_id'], msg, order_id=order_id)
         return redirect(url_for('chat_order', order_id=order_id))
     messages = db.execute("""
         SELECT c.*, u.username FROM chats c JOIN users u ON c.user_id=u.id
@@ -898,4 +900,4 @@ def admin_chat_user(user_id):
 
 if __name__ == '__main__':
     init_db()
-    app.run(debug=False)
+    app.run(debug=True)

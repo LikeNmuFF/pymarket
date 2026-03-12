@@ -13,9 +13,15 @@
   <div class="chat-wrap" id="chatWrap">
     {% if not messages %}<div style="text-align:center;color:var(--muted);padding:1.5rem;font-size:.88rem">No messages yet. Say hello! 👋</div>{% endif %}
     {% for m in messages %}
-      <div class="chat-msg {% if m['is_admin_reply'] %}theirs{% else %}mine{% endif %}">
-        <div class="chat-bubble">{{ m['message'] }}</div>
-        <div class="chat-meta">{% if m['is_admin_reply'] %}👑 Admin{% else %}You{% endif %} · {{ m['created_at'][11:16] }}</div>
+      {% set is_bot = m['is_admin_reply'] and m['message'].startswith('🤖') %}
+      <div class="chat-msg {% if m['is_admin_reply'] %}theirs{% else %}mine{% endif %}" {% if is_bot %}style="--bubble-bg:rgba(16,191,210,.10);--bubble-border:rgba(16,191,210,.25)"{% endif %}>
+        <div class="chat-bubble" {% if is_bot %}style="background:rgba(16,191,210,.10);border:1px solid rgba(16,191,210,.25);white-space:pre-line"{% else %}style="white-space:pre-line"{% endif %}>{{ m['message'] }}</div>
+        <div class="chat-meta">
+          {% if is_bot %}🤖 PyMarket Bot
+          {% elif m['is_admin_reply'] %}👑 Admin
+          {% else %}You{% endif %}
+          · {{ m['created_at'][11:16] }}
+        </div>
       </div>
     {% endfor %}
   </div>
