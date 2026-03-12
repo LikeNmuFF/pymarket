@@ -1,10 +1,9 @@
 from datetime import datetime
 
 BOT_NAME = "PyMarket Bot 🤖"
-BOT_REPLY_DELAY_MINUTES = 5
 
 def get_greeting():
-    hour = datetime.now().hour
+    hour = datetime.utcnow().hour
     if 5 <= hour < 12:
         return "Good morning! ☀️"
     elif 12 <= hour < 18:
@@ -15,21 +14,51 @@ def get_greeting():
         return "Hello, night owl! 🌟"
 
 def bot_should_reply(db, user_id, order_id=None):
+    """Reply immediately if admin has never replied to this user in this thread."""
     last_admin = db.execute(
-        "SELECT created_at FROM chats WHERE user_id=? AND is_admin_reply=1 AND (order_id=? OR (order_id IS NULL AND ? IS NULL)) ORDER BY created_at DESC LIMIT 1",
+        "SELECT id FROM chats WHERE user_id=? AND is_admin_reply=1 AND (order_id=? OR (order_id IS NULL AND ? IS NULL)) LIMIT 1",
         (user_id, order_id, order_id)).fetchone()
-    last_user = db.execute(
-        "SELECT created_at FROM chats WHERE user_id=? AND is_admin_reply=0 AND (order_id=? OR (order_id IS NULL AND ? IS NULL)) ORDER BY created_at DESC LIMIT 1",
-        (user_id, order_id, order_id)).fetchone()
-    if not last_user:
-        return False
-    if last_admin and last_admin['created_at'] >= last_user['created_at']:
-        return False
-    try:
-        elapsed = (datetime.now() - datetime.fromisoformat(last_user['created_at'])).total_seconds() / 60
-    except:
-        return False
-    return elapsed >= BOT_REPLY_DELAY_MINUTES
+    # If admin has replied at least once before, don't spam with bot
+    # But if admin has NEVER replied in this thread, bot replies right away
+    if last_admin:
+        # Admin has replied before — only bot-reply if last message was from user
+        # and the last admin reply was before the current user message
+        last_admin_msg = db.execute(
+            "SELECT created_at FROM chats WHERE user_id=? AND is_admin_reply=1 AND (order_id=? OR (order_id IS NULL AND ? IS NULL)) ORDER BY created_at DESC LIMIT 1",
+            (user_id, order_id, order_id)).fetchone()
+        last_user_msg = db.execute(
+            "SELECT created_at FROM chats WHERE user_id=? AND is_admin_reply=0 AND (order_id=? OR (order_id IS NULL AND ? IS NULL)) ORDER BY created_at DESC LIMIT 1",
+            (user_id, order_id, order_id)).fetchone()
+        if not last_user_msg:
+            return False
+        # Only reply if user sent a NEW message after the last admin reply
+        if last_admin_msg and last_admin_msg['created_at'] >= last_user_msg['created_at']:
+            return False
+        # Check bot hasn't already replied to this latest message
+        last_bot = db.execute(
+            "SELECT created_at FROM chats WHERE user_id=? AND is_admin_reply=1 AND message LIKE '🤖%' AND (order_id=? OR (order_id IS NULL AND ? IS NULL)) ORDER BY created_at DESC LIMIT 1",
+            (user_id, order_id, order_id)).fetchone()
+        if last_bot and last_user_msg and last_bot['created_at'] >= last_user_msg['created_at']:
+            return False
+        return True
+    else:
+        # No admin reply ever — bot always replies to first message
+        # But make sure bot hasn't already replied
+        last_bot = db.execute(
+            "SELECT id FROM chats WHERE user_id=? AND is_admin_reply=1 AND message LIKE '🤖%' AND (order_id=? OR (order_id IS NULL AND ? IS NULL)) ORDER BY created_at DESC LIMIT 1",
+            (user_id, order_id, order_id)).fetchone()
+        if last_bot:
+            # Bot already replied — check if user sent NEW message after bot reply
+            last_bot_time = db.execute(
+                "SELECT created_at FROM chats WHERE user_id=? AND is_admin_reply=1 AND message LIKE '🤖%' AND (order_id=? OR (order_id IS NULL AND ? IS NULL)) ORDER BY created_at DESC LIMIT 1",
+                (user_id, order_id, order_id)).fetchone()
+            last_user_msg = db.execute(
+                "SELECT created_at FROM chats WHERE user_id=? AND is_admin_reply=0 AND (order_id=? OR (order_id IS NULL AND ? IS NULL)) ORDER BY created_at DESC LIMIT 1",
+                (user_id, order_id, order_id)).fetchone()
+            if last_user_msg and last_bot_time and last_user_msg['created_at'] > last_bot_time['created_at']:
+                return True
+            return False
+        return True
 
 def bot_get_reply(db, user_id, message, order_id=None):
     msg = message.lower().strip()
@@ -51,7 +80,7 @@ def bot_get_reply(db, user_id, message, order_id=None):
         return "\n".join(lines)
 
     if any(w in msg for w in ['price', 'cost', 'how much', 'magkano', 'presyo',
-                               'project', 'available', 'list', 'sell', 'ano meron']):
+                               'project', 'available', 'list', 'sell', 'ano', 'meron']):
         projects = db.execute(
             "SELECT title, price, category FROM projects WHERE is_active=1 ORDER BY price ASC"
         ).fetchall()
@@ -115,7 +144,7 @@ def bot_get_reply(db, user_id, message, order_id=None):
         ]
         return "\n".join(lines)
 
-    if any(w in msg for w in ['download', 'get project', 'where', 'link', 'file', 'source']):
+    if any(w in msg for w in ['download', 'get project', 'where', 'file', 'source']):
         lines = [
             "To download your project: 📥", "",
             "1️⃣ Go to My Orders",
@@ -126,12 +155,7 @@ def bot_get_reply(db, user_id, message, order_id=None):
         return "\n".join(lines)
 
     if any(w in msg for w in ['admin', 'contact', 'talk', 'human', 'real person', 'owner']):
-        lines = [
-            "I'm PyMarket Bot 🤖 — your automated assistant!",
-            "Our admin will personally read and reply to your message soon! 👨‍💻",
-            "Is there anything I can help you with in the meantime? 😊"
-        ]
-        return "\n".join(lines)
+        return "I'm PyMarket Bot 🤖 — your automated assistant!\nOur admin will personally reply to your message soon! 👨‍💻\nAnything else I can help with? 😊"
 
     if any(w in msg for w in ['thank', 'thanks', 'ty', 'salamat', 'thx']):
         return "You're welcome! 😊🙏 Happy to help! Ask anything anytime! 💬✨"
@@ -153,5 +177,5 @@ def maybe_bot_reply(db, user_id, message, order_id=None):
     reply = bot_get_reply(db, user_id, message, order_id)
     db.execute(
         "INSERT INTO chats (user_id, order_id, is_admin_reply, message) VALUES (?,?,1,?)",
-        (user_id, order_id, "🤖 " + BOT_NAME + ":\n" + reply))
+        (user_id, order_id, "🤖 **" + BOT_NAME + ":**\n" + reply))
     db.commit()
