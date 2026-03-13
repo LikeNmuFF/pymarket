@@ -3,7 +3,7 @@ from datetime import datetime
 BOT_NAME = "PyMarket Bot 🤖"
 
 def get_greeting():
-    hour = datetime.utcnow().hour
+    hour = (datetime.utcnow().hour + 8) % 24  # UTC+8 Philippines
     if 5 <= hour < 12:
         return "Good morning! ☀️"
     elif 12 <= hour < 18:
@@ -81,16 +81,24 @@ def bot_get_reply(db, user_id, message, order_id=None):
 
     if any(w in msg for w in ['price', 'cost', 'how much', 'magkano', 'presyo',
                                'project', 'available', 'list', 'sell', 'ano', 'meron']):
-        projects = db.execute(
-            "SELECT title, price, category FROM projects WHERE is_active=1 ORDER BY price ASC"
-        ).fetchall()
-        if projects:
+        projects = db.execute("""
+            SELECT p.title, p.price, p.category,
+                (SELECT COUNT(*) FROM orders o WHERE o.project_id=p.id AND o.status='approved') as sold
+            FROM projects p WHERE p.is_active=1 ORDER BY p.price ASC
+        """).fetchall()
+        available = [p for p in projects if p['sold'] == 0]
+        sold_out  = [p for p in projects if p['sold'] > 0]
+        if available:
             items = ["Here are our available Python projects! 🐍✨", ""]
-            for p in projects:
+            for p in available:
                 cat = p['category'] or 'General'
                 items.append("• " + p['title'] + " (" + cat + ") — ₱" + "{:.2f}".format(p['price']))
+            if sold_out:
+                items += ["", "🔒 Already sold: " + ", ".join([p['title'] for p in sold_out])]
             items += ["", "All prices include 0.5% VAT. Full source code, lifetime access, one buyer only! 🔒"]
             return "\n".join(items)
+        elif sold_out:
+            return "All our current projects are sold out! 😮 New projects coming soon. Stay tuned! 🚀"
         return "We're still adding projects! 🛠️ Check back soon or ask admin for the latest listings. 😊"
 
     if any(w in msg for w in ['gcash', 'pay', 'payment', 'bayad', 'how to pay',
@@ -177,5 +185,5 @@ def maybe_bot_reply(db, user_id, message, order_id=None):
     reply = bot_get_reply(db, user_id, message, order_id)
     db.execute(
         "INSERT INTO chats (user_id, order_id, is_admin_reply, message) VALUES (?,?,1,?)",
-        (user_id, order_id, "🤖 **" + BOT_NAME + ":**\n" + reply))
+        (user_id, order_id, "🤖 " + BOT_NAME + ":\n" + reply))
     db.commit()

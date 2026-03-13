@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{% block title %}PyMarket{% endblock %} — Python Projects Store</title>
-<link rel="icon" type="png/x-icon" href="{{ url_for('static', filename='logo.png')}}">
+<link rel="icon" type="png\x-icon" href="{{ url_for('static', filename='logo.png')}}">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Syne:wght@700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 [data-theme="dark"]{--bg:#0a0a0f;--surface:#12121a;--surface2:#1a1a26;--border:#2a2a3d;--text:#e8e8f0;--muted:#888899;--shadow:rgba(0,0,0,.45);--card-shadow:rgba(108,99,255,.12)}
@@ -226,10 +226,15 @@ footer{text-align:center;padding:1.8rem 1rem;color:var(--muted);font-size:.82rem
 <body>
 <nav>
   <div class="nav-inner">
-    <a href="{{ url_for('index') }}" class="nav-logo"><img src="{{ url_for('static', filename='logo.svg')}}" height=36px alt='logo' style="height=36px:auto;vertical-align: middle;"> PyMarket</a>
+    <a href="{{ url_for('index') }}" class="nav-logo">
+    <img src="{{ url_for('static', filename='logo.svg')}}" alt="logo" height="36px" style="height: 36px:auto;vertical-align:middle;">
+     PyMarket</a>
     <div class="nav-links">
       <a href="{{ url_for('index') }}" class="nav-link">Browse</a>
       <a href="{{ url_for('auctions') }}" class="nav-link">🏷 Auctions</a>
+      {% if not session.get('is_admin') %}
+        <a href="{{ url_for('faq') }}" class="nav-link">❓ FAQ</a>
+      {% endif %}
       {% if session.get('is_admin') %}
         <a href="{{ url_for('admin_dashboard') }}" class="nav-link">Admin</a>
         <a href="{{ url_for('admin_chats') }}" class="nav-link">💬 Chats</a>
@@ -265,6 +270,9 @@ footer{text-align:center;padding:1.8rem 1rem;color:var(--muted);font-size:.82rem
 <div class="mobile-menu" id="mobileMenu">
   <a href="{{ url_for('index') }}" class="nav-link">🏠 Browse</a>
   <a href="{{ url_for('auctions') }}" class="nav-link">🏷 Auctions</a>
+  {% if not session.get('is_admin') %}
+    <a href="{{ url_for('faq') }}" class="nav-link">❓ FAQ</a>
+  {% endif %}
   {% if session.get('is_admin') %}
     <a href="{{ url_for('admin_dashboard') }}" class="nav-link">⚙️ Admin</a>
     <a href="{{ url_for('admin_chats') }}" class="nav-link">💬 Chats</a>
@@ -310,7 +318,7 @@ footer{text-align:center;padding:1.8rem 1rem;color:var(--muted);font-size:.82rem
   </div>
 </div>
 
-<footer>© 2026 PyMarket · Python Projects Marketplace · GCash Payments · 0.5% VAT</footer>
+<footer>© 2024 PyMarket · Python Projects Marketplace · GCash Payments · 0.5% VAT</footer>
 
 <script>
 function requireLogin(href){

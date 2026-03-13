@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block title %}Manage FAQ — Admin{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="admin-nav" style="display:flex;gap:.5rem;margin-bottom:2rem;border-bottom:1px solid var(--border);padding-bottom:1rem;flex-wrap:wrap">
+    <a href="{{ url_for('admin_dashboard') }}" style="padding:.5rem 1.1rem;border-radius:8px;font-size:.9rem;font-weight:500;color:var(--muted)">Dashboard</a>
+    <a href="{{ url_for('admin_projects') }}" style="padding:.5rem 1.1rem;border-radius:8px;font-size:.9rem;font-weight:500;color:var(--muted)">Projects</a>
+    <a href="{{ url_for('admin_orders') }}" style="padding:.5rem 1.1rem;border-radius:8px;font-size:.9rem;font-weight:500;color:var(--muted)">Orders</a>
+    <a href="{{ url_for('admin_auctions') }}" style="padding:.5rem 1.1rem;border-radius:8px;font-size:.9rem;font-weight:500;color:var(--muted)">🏷 Auctions</a>
+    <a href="{{ url_for('admin_chats') }}" style="padding:.5rem 1.1rem;border-radius:8px;font-size:.9rem;font-weight:500;color:var(--muted)">💬 Chats</a>
+    <a href="{{ url_for('admin_faq') }}" style="padding:.5rem 1.1rem;border-radius:8px;font-size:.9rem;font-weight:500;color:var(--text);background:var(--surface2)">❓ FAQ</a>
+    <a href="{{ url_for('admin_reviews') }}" style="padding:.5rem 1.1rem;border-radius:8px;font-size:.9rem;font-weight:500;color:var(--muted)">⭐ Reviews</a>
+  </div>
+  <h1 class="page-title" style="margin-bottom:.2rem">❓ Manage FAQ</h1>
+  <p class="page-sub" style="margin-bottom:1.5rem">{{ faqs|length }} questions</p>
+
+  <!-- Add FAQ -->
+  <div class="form-card" style="margin-bottom:2rem">
+    <h3 style="font-size:1rem;font-weight:700;margin-bottom:1rem">➕ Add New FAQ</h3>
+    <form method="POST">
+      <div class="form-group">
+        <label>Question *</label>
+        <input type="text" name="question" placeholder="e.g. How do I pay?" required>
+      </div>
+      <div class="form-group">
+        <label>Answer *</label>
+        <textarea name="answer" rows="3" placeholder="Write a clear, helpful answer..." required></textarea>
+      </div>
+      <div class="form-group">
+        <label>Sort Order <span style="color:var(--muted);font-size:.8rem">(lower = shows first)</span></label>
+        <input type="number" name="sort_order" value="{{ (faqs|length + 1) }}" min="0" style="width:120px">
+      </div>
+      <button type="submit" class="btn btn-primary">Add FAQ</button>
+    </form>
+  </div>
+
+  <!-- FAQ List -->
+  {% for f in faqs %}
+  <div class="form-card" style="margin-bottom:1rem">
+    <form method="POST" action="{{ url_for('admin_faq_edit', fid=f['id']) }}">
+      <div style="display:flex;gap:1rem;align-items:flex-start;flex-wrap:wrap">
+        <div style="flex:1;min-width:200px">
+          <div class="form-group" style="margin-bottom:.6rem">
+            <input type="text" name="question" value="{{ f['question'] }}" required style="font-weight:600">
+          </div>
+          <div class="form-group" style="margin-bottom:.6rem">
+            <textarea name="answer" rows="2" required>{{ f['answer'] }}</textarea>
+          </div>
+          <div style="display:flex;gap:.8rem;align-items:center;flex-wrap:wrap">
+            <label style="font-size:.8rem;color:var(--muted)">Order:</label>
+            <input type="number" name="sort_order" value="{{ f['sort_order'] }}" min="0" style="width:80px">
+            <button type="submit" class="btn btn-primary btn-sm">💾 Save</button>
+          </div>
+        </div>
+        <a href="{{ url_for('admin_faq_delete', fid=f['id']) }}"
+           onclick="return confirm('Delete this FAQ?')"
+           class="btn btn-outline btn-sm" style="color:var(--accent2);border-color:var(--accent2)">🗑 Delete</a>
+      </div>
+    </form>
+  </div>
+  {% endfor %}
+  {% if not faqs %}
+  <div style="text-align:center;color:var(--muted);padding:2rem">No FAQs yet. Add your first one above! 😊</div>
+  {% endif %}
+</div>
+{% endblock %}

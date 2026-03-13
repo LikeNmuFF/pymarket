@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% block title %}FAQ — PyMarket{% endblock %}
+{% block extra_css %}
+<style>
+.faq-hero{text-align:center;padding:3rem 1rem 2rem;background:linear-gradient(135deg,rgba(248,72,198,.07),rgba(16,191,210,.07));border-radius:16px;margin-bottom:2.5rem}
+.faq-hero h1{font-size:2.2rem;font-weight:800;margin-bottom:.5rem}
+.faq-hero p{color:var(--muted);font-size:1rem}
+.faq-item{border:1px solid var(--border);border-radius:12px;margin-bottom:.8rem;overflow:hidden;transition:box-shadow .2s}
+.faq-item:hover{box-shadow:0 4px 20px rgba(248,72,198,.1)}
+.faq-q{padding:1.1rem 1.3rem;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-weight:600;font-size:.97rem;gap:1rem;user-select:none}
+.faq-q .icon{font-size:1.2rem;transition:transform .3s;flex-shrink:0;color:var(--accent)}
+.faq-item.open .faq-q .icon{transform:rotate(45deg)}
+.faq-a{padding:0 1.3rem;max-height:0;overflow:hidden;transition:max-height .35s ease,padding .3s ease;color:var(--muted);font-size:.9rem;line-height:1.7}
+.faq-item.open .faq-a{max-height:300px;padding:0 1.3rem 1.2rem}
+.faq-cta{background:linear-gradient(135deg,rgba(248,72,198,.08),rgba(16,191,210,.08));border:1px solid var(--border);border-radius:14px;padding:2rem;text-align:center;margin-top:2.5rem}
+</style>
+{% endblock %}
+{% block content %}
+<div class="container" style="max-width:720px">
+  <div class="faq-hero">
+    <div style="font-size:2.5rem;margin-bottom:.6rem">❓</div>
+    <h1>Frequently Asked Questions</h1>
+    <p>Everything you need to know about PyMarket</p>
+  </div>
+
+  {% if faqs %}
+    {% for f in faqs %}
+    <div class="faq-item" id="faq-{{ f['id'] }}">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        <span>{{ f['question'] }}</span>
+        <span class="icon">+</span>
+      </div>
+      <div class="faq-a">{{ f['answer'] }}</div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div style="text-align:center;color:var(--muted);padding:3rem">No FAQs yet. Check back soon! 😊</div>
+  {% endif %}
+
+  <div class="faq-cta">
+    <div style="font-size:1.8rem;margin-bottom:.5rem">💬</div>
+    <div style="font-weight:700;font-size:1.05rem;margin-bottom:.4rem">Still have questions?</div>
+    <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem">Our support team is happy to help!</p>
+    <a href="{{ url_for('chat_general') }}" class="btn btn-primary">Chat with Support</a>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function toggleFaq(el) {
+  const item = el.closest('.faq-item');
+  const isOpen = item.classList.contains('open');
+  document.querySelectorAll('.faq-item.open').forEach(i => i.classList.remove('open'));
+  if (!isOpen) item.classList.add('open');
+}
+// Auto-open if hash matches
+const hash = window.location.hash;
+if (hash) {
+  const el = document.querySelector(hash);
+  if (el) { el.classList.add('open'); el.scrollIntoView({behavior:'smooth'}); }
+}
+</script>
+{% endblock %}

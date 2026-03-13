@@ -101,6 +101,23 @@ def init_db():
                 FOREIGN KEY(project_id) REFERENCES projects(id),
                 FOREIGN KEY(winner_id) REFERENCES users(id)
             );
+            CREATE TABLE IF NOT EXISTS reviews (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5),
+                comment TEXT DEFAULT '',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(project_id, user_id),
+                FOREIGN KEY(project_id) REFERENCES projects(id),
+                FOREIGN KEY(user_id) REFERENCES users(id)
+            );
+            CREATE TABLE IF NOT EXISTS project_views (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER NOT NULL,
+                viewed_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(project_id) REFERENCES projects(id)
+            );
             CREATE TABLE IF NOT EXISTS auction_bids (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 auction_id INTEGER NOT NULL,
@@ -128,6 +145,43 @@ def init_db():
         try: db.execute("ALTER TABLE auctions ADD COLUMN winner_id INTEGER")
         except: pass
         try: db.execute("ALTER TABLE auctions ADD COLUMN winning_bid REAL")
+        except: pass
+        try: db.execute("""CREATE TABLE IF NOT EXISTS reviews (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL, rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5),
+            comment TEXT DEFAULT '', created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(project_id, user_id), FOREIGN KEY(project_id) REFERENCES projects(id),
+            FOREIGN KEY(user_id) REFERENCES users(id))""")
+        except: pass
+        try: db.execute("""CREATE TABLE IF NOT EXISTS project_views (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER NOT NULL,
+            viewed_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(project_id) REFERENCES projects(id))""")
+        except: pass
+        try: db.execute("""CREATE TABLE IF NOT EXISTS faq (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            question TEXT NOT NULL,
+            answer TEXT NOT NULL,
+            sort_order INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP)""")
+        except: pass
+        # Seed default FAQs if table is empty
+        try:
+            count = db.execute("SELECT COUNT(*) as c FROM faq").fetchone()['c']
+            if count == 0:
+                faqs = [
+                    ("What is PyMarket?", "PyMarket is a marketplace for ready-made Python projects. Each project is sold exclusively to one buyer — you get full source code, lifetime access, and real ownership.", 1),
+                    ("How do I pay?", "All payments are made via GCash. Simply browse a project, click Buy, scan the QR code or send to our GCash number, then submit your reference number and receipt screenshot.", 2),
+                    ("How long until my order is approved?", "Admin manually verifies each payment. Approval usually takes a few hours. You'll be able to download your project as soon as it's approved.", 3),
+                    ("Can multiple people buy the same project?", "No — each project is sold to exactly ONE buyer only. Once purchased, it shows as Sold Out. This gives you exclusive ownership of the source code.", 4),
+                    ("What is an auction?", "Some projects are listed on auction. Registered users can place bids in real time. The highest bidder when the timer ends wins and pays via GCash at their winning bid price.", 5),
+                    ("Can I get a refund?", "All sales are final. Please review the project description and screenshots carefully before purchasing. Contact admin via Support Chat if you have concerns.", 6),
+                    ("What file formats are included?", "Projects are delivered as .zip, .rar, or .py files containing full source code, ready to run.", 7),
+                    ("Do I need an account to browse?", "No — you can browse all projects without an account. You only need to register when you want to buy or bid.", 8),
+                ]
+                for q, a, s in faqs:
+                    db.execute("INSERT INTO faq (question, answer, sort_order) VALUES (?,?,?)", (q, a, s))
+                db.commit()
         except: pass
         try:
             db.execute("INSERT INTO users (username,email,password,is_admin) VALUES (?,?,?,1)",
@@ -226,7 +280,10 @@ def index():
             (SELECT COUNT(*) FROM orders o WHERE o.project_id=p.id AND o.status='approved') as is_sold_out,
             (SELECT id FROM auctions a
              WHERE a.project_id=p.id AND a.starts_at <= ? AND a.ends_at >= ?
-             LIMIT 1) as active_auction_id
+             LIMIT 1) as active_auction_id,
+            (SELECT COUNT(*) FROM project_views v WHERE v.project_id=p.id) as view_count,
+            (SELECT ROUND(AVG(r.rating),1) FROM reviews r WHERE r.project_id=p.id) as avg_rating,
+            (SELECT COUNT(*) FROM reviews r WHERE r.project_id=p.id) as review_count
         FROM projects p WHERE p.is_active=1
     """
     params = [now, now]
@@ -263,6 +320,9 @@ def project_detail(pid):
     project = db.execute("SELECT * FROM projects WHERE id=? AND is_active=1", (pid,)).fetchone()
     if not project:
         return redirect(url_for('index'))
+    # Track view
+    db.execute("INSERT INTO project_views (project_id) VALUES (?)", (pid,))
+    db.commit()
     screenshots = db.execute("SELECT * FROM screenshots WHERE project_id=?", (pid,)).fetchall()
     buyers = db.execute("""
         SELECT u.username, o.approved_at FROM orders o
@@ -271,22 +331,78 @@ def project_detail(pid):
     """, (pid,)).fetchall()
     user_bought = False
     user_order  = None
+    user_review = None
     if session.get('user_id'):
         user_order = db.execute(
             "SELECT * FROM orders WHERE user_id=? AND project_id=? AND status='approved'",
             (session['user_id'], pid)).fetchone()
         user_bought = user_order is not None
+        user_review = db.execute(
+            "SELECT * FROM reviews WHERE project_id=? AND user_id=?",
+            (pid, session['user_id'])).fetchone()
     sold_out    = len(buyers) >= 1
     base_price  = project['price']
     vat_amount  = round(base_price * VAT_RATE, 2)
     total_price = round(base_price + vat_amount, 2)
     active_auction = get_active_auction(db, pid)
     ended_auction  = get_ended_auction_winner(db, pid) if not active_auction else None
+    # Reviews & stats
+    reviews = db.execute("""
+        SELECT r.*, u.username, u.avatar FROM reviews r
+        JOIN users u ON r.user_id=u.id
+        WHERE r.project_id=? ORDER BY r.created_at DESC
+    """, (pid,)).fetchall()
+    avg_rating = db.execute(
+        "SELECT AVG(rating) as avg, COUNT(*) as cnt FROM reviews WHERE project_id=?", (pid,)
+    ).fetchone()
+    view_count = db.execute(
+        "SELECT COUNT(*) as c FROM project_views WHERE project_id=?", (pid,)
+    ).fetchone()['c']
     return render_template('project_detail.html', project=project,
                            screenshots=screenshots, buyers=buyers,
                            user_bought=user_bought, user_order=user_order,
                            sold_out=sold_out, vat_amount=vat_amount, total_price=total_price,
-                           active_auction=active_auction, ended_auction=ended_auction)
+                           active_auction=active_auction, ended_auction=ended_auction,
+                           reviews=reviews, avg_rating=avg_rating, view_count=view_count,
+                           user_review=user_review)
+
+@app.route('/project/<int:pid>/review', methods=['POST'])
+@login_required
+def submit_review(pid):
+    db = get_db()
+    # Only approved buyers can review
+    order = db.execute(
+        "SELECT id FROM orders WHERE user_id=? AND project_id=? AND status='approved'",
+        (session['user_id'], pid)).fetchone()
+    if not order:
+        flash('You can only review projects you have purchased.', 'error')
+        return redirect(url_for('project_detail', pid=pid))
+    rating  = int(request.form.get('rating', 5))
+    comment = request.form.get('comment', '').strip()
+    rating  = max(1, min(5, rating))
+    try:
+        db.execute(
+            "INSERT INTO reviews (project_id, user_id, rating, comment) VALUES (?,?,?,?)",
+            (pid, session['user_id'], rating, comment))
+        db.commit()
+        flash('Review submitted! Thank you 🌟', 'success')
+    except:
+        # Already reviewed — update instead
+        db.execute(
+            "UPDATE reviews SET rating=?, comment=? WHERE project_id=? AND user_id=?",
+            (rating, comment, pid, session['user_id']))
+        db.commit()
+        flash('Review updated!', 'success')
+    return redirect(url_for('project_detail', pid=pid) + '#reviews')
+
+@app.route('/project/<int:pid>/review/delete', methods=['POST'])
+@login_required
+def delete_review(pid):
+    db = get_db()
+    db.execute("DELETE FROM reviews WHERE project_id=? AND user_id=?", (pid, session['user_id']))
+    db.commit()
+    flash('Review deleted.', 'success')
+    return redirect(url_for('project_detail', pid=pid) + '#reviews')
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
@@ -629,6 +745,14 @@ def auction_status_api(aid):
         'bids': [{'amount': b['amount'], 'username': b['username'], 'time': b['created_at'][11:16]} for b in bids]
     })
 
+# ── FAQ ──────────────────────────────────────────────────────────────────────
+
+@app.route('/faq')
+def faq():
+    db = get_db()
+    faqs = db.execute("SELECT * FROM faq ORDER BY sort_order ASC, id ASC").fetchall()
+    return render_template('faq.html', faqs=faqs)
+
 # ── Chat ──────────────────────────────────────────────────────────────────────
 
 @app.route('/chat', methods=['GET','POST'])
@@ -897,6 +1021,70 @@ def admin_chat_user(user_id):
         JOIN projects p ON o.project_id=p.id WHERE o.user_id=?
     """,(user_id,)).fetchall()
     return render_template('admin/chat_user.html', user=user, messages=messages, orders=orders)
+
+@app.route('/admin/faq', methods=['GET','POST'])
+@login_required
+@admin_required
+def admin_faq():
+    db = get_db()
+    if request.method == 'POST':
+        question   = request.form['question'].strip()
+        answer     = request.form['answer'].strip()
+        sort_order = int(request.form.get('sort_order', 0))
+        if question and answer:
+            db.execute("INSERT INTO faq (question, answer, sort_order) VALUES (?,?,?)",
+                (question, answer, sort_order))
+            db.commit()
+            flash('FAQ added!', 'success')
+        return redirect(url_for('admin_faq'))
+    faqs = db.execute("SELECT * FROM faq ORDER BY sort_order ASC, id ASC").fetchall()
+    return render_template('admin/faq.html', faqs=faqs)
+
+@app.route('/admin/faq/<int:fid>/edit', methods=['POST'])
+@login_required
+@admin_required
+def admin_faq_edit(fid):
+    db = get_db()
+    db.execute("UPDATE faq SET question=?, answer=?, sort_order=? WHERE id=?",
+        (request.form['question'].strip(), request.form['answer'].strip(),
+         int(request.form.get('sort_order', 0)), fid))
+    db.commit()
+    flash('FAQ updated!', 'success')
+    return redirect(url_for('admin_faq'))
+
+@app.route('/admin/faq/<int:fid>/delete')
+@login_required
+@admin_required
+def admin_faq_delete(fid):
+    db = get_db()
+    db.execute("DELETE FROM faq WHERE id=?", (fid,))
+    db.commit()
+    flash('FAQ deleted.', 'success')
+    return redirect(url_for('admin_faq'))
+
+@app.route('/admin/reviews')
+@login_required
+@admin_required
+def admin_reviews():
+    db = get_db()
+    reviews = db.execute("""
+        SELECT r.*, u.username, p.title as project_title
+        FROM reviews r
+        JOIN users u ON r.user_id=u.id
+        JOIN projects p ON r.project_id=p.id
+        ORDER BY r.created_at DESC
+    """).fetchall()
+    return render_template('admin/reviews.html', reviews=reviews)
+
+@app.route('/admin/review/<int:rid>/delete')
+@login_required
+@admin_required
+def admin_review_delete(rid):
+    db = get_db()
+    db.execute("DELETE FROM reviews WHERE id=?", (rid,))
+    db.commit()
+    flash('Review deleted.', 'success')
+    return redirect(url_for('admin_reviews'))
 
 if __name__ == '__main__':
     init_db()
