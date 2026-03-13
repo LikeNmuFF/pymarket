@@ -5,9 +5,10 @@ import sqlite3, os, uuid, urllib.parse
 from datetime import datetime
 from functools import wraps
 from bot import maybe_bot_reply
+import secrets
 
 app = Flask(__name__)
-app.secret_key = 'your-secret-key-change-this-in-production'
+app.secret_key = secrets.token_hex(36)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH  = os.path.join(BASE_DIR, 'market.db')
@@ -23,8 +24,8 @@ for folder in [UPLOAD_SCREENSHOTS, UPLOAD_PROJECTS, UPLOAD_PAYMENTS, UPLOAD_AVAT
 ALLOWED_IMG     = {'png','jpg','jpeg','gif','webp'}
 ALLOWED_PROJECT = {'zip','rar','tar','gz','py'}
 VAT_RATE        = 0.005
-GCASH_NUMBER    = '09XX-XXX-XXXX'
-GCASH_NAME      = 'Your Name Here'
+GCASH_NUMBER    = '09518346025'
+GCASH_NAME      = 'RO....O B.'
 
 def get_db():
     conn = sqlite3.connect(DB_PATH)
@@ -185,7 +186,7 @@ def init_db():
         except: pass
         try:
             db.execute("INSERT INTO users (username,email,password,is_admin) VALUES (?,?,?,1)",
-                ('admin','admin@pymarket.com', generate_password_hash('admin123')))
+                ('admin','admin@pymarket.com', generate_password_hash('YWRtaW4xMjM=')))
             db.commit()
         except: pass
 
