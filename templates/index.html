@@ -103,19 +103,23 @@
       <div class="card-sold-out">🔒 Sold — no longer available</div>
       {% endif %}
       <div class="card-footer">
-        <div>
+        <div style="display:flex;align-items:baseline;gap:.4rem;flex-wrap:wrap">
           {% if has_discount and not sold_out %}
-            <span style="font-size:.8rem;text-decoration:line-through;color:var(--muted)">₱{{ "%.2f"|format(p['price']) }}</span>
-            <span class="price" style="color:var(--green)"> ₱{{ "%.2f"|format(sale_price) }}</span>
-            <span style="font-size:.72rem;color:var(--muted);margin-left:.2rem">+VAT</span>
+            <span style="font-size:.78rem;text-decoration:line-through;color:var(--muted);opacity:.7">₱{{ "%.2f"|format(p['price']) }}</span>
+            <span class="price" style="color:var(--green);font-size:1.1rem"> ₱{{ "%.2f"|format(sale_price) }}</span>
+            <span style="font-size:.68rem;color:var(--muted)">+VAT</span>
           {% else %}
             <span class="price {% if sold_out %}price-crossed{% endif %}">₱{{ "%.2f"|format(p['price']) }}</span>
-            <span style="font-size:.72rem;color:var(--muted);margin-left:.2rem">+VAT</span>
+            <span style="font-size:.68rem;color:var(--muted)">+VAT</span>
           {% endif %}
         </div>
-        {% if sold_out %}<span class="badge badge-red">Unavailable</span>
-        {% elif has_discount %}<span class="badge" style="background:rgba(0,214,143,.15);color:var(--green);border:1px solid rgba(0,214,143,.3)">🏷 {{ p['discount_percent']|int }}% OFF</span>
-        {% else %}<span class="badge badge-green">Available</span>{% endif %}
+        {% if sold_out %}
+          <span class="badge badge-red" style="font-size:.72rem">Unavailable</span>
+        {% elif has_discount %}
+          <span style="background:rgba(0,214,143,.12);color:var(--green);border:1px solid rgba(0,214,143,.25);border-radius:20px;padding:.18rem .55rem;font-size:.72rem;font-weight:700;white-space:nowrap">{{ p['discount_percent']|int }}% OFF</span>
+        {% else %}
+          <span class="badge badge-green" style="font-size:.72rem">Available</span>
+        {% endif %}
       </div>
     </div>
     {% endfor %}
@@ -126,7 +130,7 @@
 </div>
 
 <!-- ── FAQ teaser ── -->
-<div class="container" style="max-width:700px;margin-top:3rem;margin-bottom:3rem;text-align:center" hidden>
+<div class="container" style="max-width:700px;margin-top:3rem;margin-bottom:3rem;text-align:center">
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:2rem">
     <div style="font-size:2rem;margin-bottom:.5rem">❓</div>
     <h3 style="font-family:var(--display);font-size:1.3rem;font-weight:800;margin-bottom:.4rem">Have questions?</h3>
