@@ -1,0 +1,167 @@
+{% extends 'base.html' %}
+{% block title %}About PyMarket{% endblock %}
+{% block extra_css %}
+<style>
+.about-hero{text-align:center;padding:5rem 1rem 3rem;background:linear-gradient(135deg,rgba(248,72,198,.07),rgba(16,191,210,.07));border-bottom:1px solid var(--border)}
+.about-hero h1{font-family:var(--display);font-size:clamp(2rem,5vw,3.5rem);font-weight:900;line-height:1.1;margin-bottom:1rem}
+.about-hero h1 span{background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:1.2rem;margin:3rem 0}
+.stat-card-about{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:1.5rem;text-align:center;transition:.2s}
+.stat-card-about:hover{border-color:var(--accent);transform:translateY(-3px)}
+.stat-num{font-family:var(--display);font-size:2.2rem;font-weight:900;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.stat-label{color:var(--muted);font-size:.82rem;margin-top:.2rem}
+.section-title{font-family:var(--display);font-size:1.6rem;font-weight:800;margin-bottom:.5rem}
+.tech-grid{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:1rem}
+.tech-chip{background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:.35rem .9rem;font-size:.82rem;font-weight:600;color:var(--text)}
+.dev-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:2rem;display:flex;align-items:center;gap:2rem;flex-wrap:wrap}
+.dev-avatar{width:90px;height:90px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:2.5rem;font-weight:900;color:#fff;flex-shrink:0}
+.testi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1.2rem;margin-top:1.5rem}
+.testi-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.3rem;transition:.2s}
+.testi-card:hover{border-color:var(--accent)}
+.stars{color:#ffd166;font-size:.95rem;letter-spacing:.05em}
+.section-wrap{max-width:860px;margin:0 auto;padding:3rem 1rem}
+.mission-box{background:linear-gradient(135deg,rgba(248,72,198,.08),rgba(16,191,210,.06));border:1px solid rgba(248,72,198,.2);border-radius:20px;padding:2.5rem;margin-bottom:2rem}
+</style>
+{% endblock %}
+{% block content %}
+
+<!-- Hero -->
+<div class="about-hero">
+  <div style="max-width:700px;margin:auto">
+    <div style="font-size:3rem;margin-bottom:1rem">🐍</div>
+    <h1>The Home of <span>Premium Python Projects</span> in the Philippines</h1>
+    <p style="color:var(--muted);font-size:1.05rem;max-width:520px;margin:1rem auto 2rem">PyMarket is where Filipino developers buy and own ready-made Python projects — exclusively, securely, via GCash.</p>
+    <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap">
+      <a href="{{ url_for('register') }}" class="btn btn-primary">🚀 Get Started Free</a>
+      <a href="{{ url_for('index') }}" class="btn btn-outline">Browse Projects</a>
+    </div>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="section-wrap">
+  <div class="stat-row">
+    <div class="stat-card-about">
+      <div class="stat-num">{{ stats.projects }}</div>
+      <div class="stat-label">Python Projects</div>
+    </div>
+    <div class="stat-card-about">
+      <div class="stat-num">{{ stats.buyers }}</div>
+      <div class="stat-label">Happy Buyers</div>
+    </div>
+    <div class="stat-card-about">
+      <div class="stat-num">{{ stats.reviews }}</div>
+      <div class="stat-label">Reviews</div>
+    </div>
+    <div class="stat-card-about">
+      <div class="stat-num">{{ stats.auctions }}</div>
+      <div class="stat-label">Auctions Held</div>
+    </div>
+    <div class="stat-card-about">
+      <div class="stat-num">1</div>
+      <div class="stat-label">Buyer Per Project</div>
+    </div>
+  </div>
+
+  <!-- Mission -->
+  <div class="mission-box">
+    <div class="section-title">🎯 Our Mission</div>
+    <p style="color:var(--muted);line-height:1.8;margin-top:.8rem">PyMarket was built to give Filipino developers a place to buy and own high-quality Python source code — not just a license, but <strong style="color:var(--text)">true exclusive ownership</strong>. Every project is sold to exactly one buyer. Once it's yours, it's yours forever.</p>
+    <p style="color:var(--muted);line-height:1.8;margin-top:.8rem">We believe in fair, transparent transactions via <strong style="color:#00b3ff">GCash 💙</strong> — the payment method every Filipino knows and trusts. No complicated gateways, no hidden fees, just a simple QR code and you're done.</p>
+  </div>
+
+  <!-- How it works -->
+  <div style="margin-bottom:3rem">
+    <div class="section-title">⚡ How It Works</div>
+    <p style="color:var(--muted);margin-bottom:1.5rem">Three simple steps to own premium Python code:</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.5rem;text-align:center">
+        <div style="font-size:2rem;margin-bottom:.6rem">🔍</div>
+        <div style="font-weight:700;margin-bottom:.4rem">1. Browse</div>
+        <div style="color:var(--muted);font-size:.85rem">Explore projects — no login needed. Read descriptions, view screenshots, check the tech stack.</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.5rem;text-align:center">
+        <div style="font-size:2rem;margin-bottom:.6rem">💳</div>
+        <div style="font-weight:700;margin-bottom:.4rem">2. Pay via GCash</div>
+        <div style="color:var(--muted);font-size:.85rem">Scan the QR code, send the exact amount, upload your receipt. Admin verifies within hours.</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.5rem;text-align:center">
+        <div style="font-size:2rem;margin-bottom:.6rem">📦</div>
+        <div style="font-weight:700;margin-bottom:.4rem">3. Own It Forever</div>
+        <div style="color:var(--muted);font-size:.85rem">Download the full source code. It's yours exclusively — no one else can buy the same project.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Developer -->
+  <div style="margin-bottom:3rem">
+    <div class="section-title">👨‍💻 Meet the Developer</div>
+    <div class="dev-card" style="margin-top:1rem">
+      <div class="dev-avatar">LK</div>
+      <div>
+        <div style="font-weight:800;font-size:1.15rem">LikeNmuFF</div>
+        <div style="color:var(--accent);font-size:.88rem;margin-bottom:.6rem">🇵🇭 Filipino Python Developer</div>
+        <p style="color:var(--muted);font-size:.9rem;line-height:1.7">Built PyMarket from scratch using Flask + SQLite. Passionate about creating useful tools for the Filipino developer community. Specializes in Python, web apps, and automation systems.</p>
+        <div class="tech-grid" style="margin-top:.8rem">
+          <span class="tech-chip">🐍 Python</span>
+          <span class="tech-chip">⚗️ Flask</span>
+          <span class="tech-chip">🗄️ SQLite</span>
+          <span class="tech-chip">💙 GCash Integrations</span>
+          <span class="tech-chip">🤖 Automation</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tech Stack -->
+  <div style="margin-bottom:3rem">
+    <div class="section-title">🛠️ Built With</div>
+    <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem">PyMarket is 100% built with open-source tools — no expensive frameworks, no vendor lock-in.</p>
+    <div class="tech-grid">
+      <span class="tech-chip">⚗️ Flask 2.x</span>
+      <span class="tech-chip">🗄️ SQLite</span>
+      <span class="tech-chip">🎨 Vanilla CSS</span>
+      <span class="tech-chip">⚡ Vanilla JS</span>
+      <span class="tech-chip">🔐 Werkzeug</span>
+      <span class="tech-chip">📄 Jinja2</span>
+      <span class="tech-chip">📸 QR Server API</span>
+      <span class="tech-chip">🌐 PythonAnywhere</span>
+    </div>
+  </div>
+
+  <!-- Testimonials -->
+  {% if testimonials %}
+  <div style="margin-bottom:3rem">
+    <div class="section-title">⭐ What Buyers Say</div>
+    <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem">Real reviews from verified buyers.</p>
+    <div class="testi-grid">
+      {% for t in testimonials %}
+      <div class="testi-card">
+        <div class="stars">{% for i in range(t['rating']) %}★{% endfor %}{% for i in range(5-t['rating']) %}<span style="color:var(--border)">★</span>{% endfor %}</div>
+        <p style="color:var(--muted);font-size:.88rem;line-height:1.6;margin:.6rem 0">"{{ t['comment'][:180] }}{% if t['comment']|length > 180 %}...{% endif %}"</p>
+        <div style="display:flex;align-items:center;gap:.5rem;margin-top:.8rem">
+          <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;color:#fff">{{ t['username'][0].upper() }}</div>
+          <div>
+            <div style="font-size:.82rem;font-weight:600">{{ t['username'] }}</div>
+            <div style="font-size:.75rem;color:var(--muted)">on {{ t['project_title'] }}</div>
+          </div>
+          <span class="badge badge-cat" style="margin-left:auto;font-size:.68rem">🏅 Verified</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- CTA -->
+  <div style="text-align:center;background:linear-gradient(135deg,rgba(248,72,198,.08),rgba(16,191,210,.06));border:1px solid rgba(248,72,198,.2);border-radius:20px;padding:3rem 2rem">
+    <div style="font-size:2.5rem;margin-bottom:.8rem">🚀</div>
+    <h2 style="font-family:var(--display);font-size:1.8rem;font-weight:900;margin-bottom:.5rem">Ready to own your first project?</h2>
+    <p style="color:var(--muted);margin-bottom:1.5rem">Join hundreds of Filipino developers on PyMarket.</p>
+    <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap">
+      <a href="{{ url_for('register') }}" class="btn btn-primary">Create Free Account</a>
+      <a href="{{ url_for('index') }}" class="btn btn-outline">Browse Projects</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

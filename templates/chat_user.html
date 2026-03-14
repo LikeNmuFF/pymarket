@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% block title %}Chat with {{ user['username'] }}{% endblock %}
+{% block extra_css %}
+<style>
+.admin-nav{display:flex;gap:.5rem;margin-bottom:2rem;border-bottom:1px solid var(--border);padding-bottom:1rem;flex-wrap:wrap}
+.admin-nav a{padding:.5rem 1.1rem;border-radius:8px;font-size:.9rem;font-weight:500;color:var(--muted);transition:.2s}
+.admin-nav a:hover,.admin-nav a.active{background:var(--surface2);color:var(--text)}
+</style>
+{% endblock %}
+{% block content %}
+<div class="container" style="max-width:760px">
+  <div class="admin-nav">
+    <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('admin_orders') }}">Orders</a>
+    <a href="{{ url_for('admin_auctions')}}" >🏷 Auctions</a>
+    <a href="{{ url_for('admin_chats') }}" class="active">💬 Chats</a>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:.8rem;margin-bottom:1.5rem">
+    <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:1.2rem;font-weight:700;color:#fff">{{ user['username'][0].upper() }}</div>
+    <div>
+      <div style="font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:800">{{ user['username'] }}</div>
+      <div style="color:var(--muted);font-size:.85rem">{{ user['email'] }}</div>
+    </div>
+  </div>
+
+  <div class="chat-wrap" id="chatWrap">
+    {% if not messages %}
+      <div style="text-align:center;color:var(--muted);padding:2rem;font-size:.9rem">No messages yet.</div>
+    {% endif %}
+    {% for m in messages %}
+      {% if m['is_admin_reply'] %}
+        <div class="chat-msg mine">
+          <div class="chat-bubble">{{ m['message'] }}</div>
+          <div class="chat-meta">
+            👑 You (Admin)
+            {% if m['order_ref'] %} · Re: Order #{{ m['order_ref'] }} — {{ m['project_title'] }}{% endif %}
+            · {{ m['created_at'][11:16] }}
+          </div>
+        </div>
+      {% else %}
+        <div class="chat-msg theirs">
+          <div class="chat-bubble">{{ m['message'] }}</div>
+          <div class="chat-meta">
+            {{ m['username'] }}
+            {% if m['order_ref'] %} · Re: Order #{{ m['order_ref'] }} — {{ m['project_title'] }}{% endif %}
+            · {{ m['created_at'][11:16] }}
+          </div>
+        </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  <form method="POST" style="margin-top:1rem">
+    {% if orders %}
+    <div class="form-group" style="margin-bottom:.8rem">
+      <select name="order_id" style="font-size:.85rem">
+        <option value="">— General reply (no order) —</option>
+        {% for o in orders %}
+          <option value="{{ o['id'] }}">Order #{{ o['order_ref'] }} — {{ o['title'] }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    <div class="chat-input-row">
+      <input type="text" name="message" placeholder="Reply to {{ user['username'] }}..." autocomplete="off" required>
+      <button type="submit" class="btn btn-primary">Send</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const wrap = document.getElementById('chatWrap');
+if(wrap) wrap.scrollTop = wrap.scrollHeight;
+</script>
+{% endblock %}

@@ -70,6 +70,8 @@
   <div class="grid">
     {% for p in projects %}
     {% set sold_out = p['is_sold_out'] and p['is_sold_out'] >= 1 %}
+    {% set has_discount = p['discount_percent'] and p['discount_percent'] > 0 %}
+    {% set sale_price = (p['price'] * (1 - p['discount_percent']/100))|round(2) if has_discount else p['price'] %}
     <div class="card" onclick="requireLogin('{{ url_for('project_detail',pid=p['id']) }}')">
       {% if p['thumb'] %}
         <img class="card-img" src="{{ url_for('static',filename='uploads/screenshots/'+p['thumb']) }}" alt="{{ p['title'] }}" {% if sold_out %}style="filter:grayscale(.5);opacity:.7"{% endif %}>
@@ -81,6 +83,7 @@
           <div class="card-title" style="margin:0;flex:1">{{ p['title'] }}</div>
           {% if p['category'] %}<span class="badge badge-cat">{{ p['category'] }}</span>{% endif %}
           {% if sold_out %}<span class="badge badge-red">Sold</span>{% endif %}
+          {% if has_discount and not sold_out %}<span class="badge" style="background:rgba(0,214,143,.15);color:var(--green);border:1px solid rgba(0,214,143,.3)">🏷 SALE</span>{% endif %}
         </div>
         <div class="card-desc">{{ p['description'] }}</div>
         <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.4rem">
@@ -101,10 +104,17 @@
       {% endif %}
       <div class="card-footer">
         <div>
-          <span class="price {% if sold_out %}price-crossed{% endif %}">₱{{ "%.2f"|format(p['price']) }}</span>
-          <span style="font-size:.72rem;color:var(--muted);margin-left:.2rem">+VAT</span>
+          {% if has_discount and not sold_out %}
+            <span style="font-size:.8rem;text-decoration:line-through;color:var(--muted)">₱{{ "%.2f"|format(p['price']) }}</span>
+            <span class="price" style="color:var(--green)"> ₱{{ "%.2f"|format(sale_price) }}</span>
+            <span style="font-size:.72rem;color:var(--muted);margin-left:.2rem">+VAT</span>
+          {% else %}
+            <span class="price {% if sold_out %}price-crossed{% endif %}">₱{{ "%.2f"|format(p['price']) }}</span>
+            <span style="font-size:.72rem;color:var(--muted);margin-left:.2rem">+VAT</span>
+          {% endif %}
         </div>
         {% if sold_out %}<span class="badge badge-red">Unavailable</span>
+        {% elif has_discount %}<span class="badge" style="background:rgba(0,214,143,.15);color:var(--green);border:1px solid rgba(0,214,143,.3)">🏷 {{ p['discount_percent']|int }}% OFF</span>
         {% else %}<span class="badge badge-green">Available</span>{% endif %}
       </div>
     </div>

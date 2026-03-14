@@ -31,8 +31,37 @@
   </div>
   {% endif %}
 
+  <!-- Promo Code Box (only for non-auction purchases) -->
+  {% if not is_auction_winner %}
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1rem 1.2rem;margin-bottom:1.2rem">
+    <div style="font-weight:600;font-size:.9rem;margin-bottom:.7rem">🎁 Have a promo code?</div>
+    <form method="GET" style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">
+      <input type="hidden" name="pid" value="{{ project['id'] }}">
+      <input type="text" name="promo" value="{{ promo_code or '' }}" placeholder="Enter code e.g. SAVE20"
+        style="flex:1;min-width:160px;font-family:var(--mono);text-transform:uppercase;font-size:.9rem">
+      <button type="submit" class="btn btn-outline" style="white-space:nowrap">Apply</button>
+    </form>
+    {% if promo_error %}
+      <div style="color:var(--accent2);font-size:.82rem;margin-top:.5rem">❌ {{ promo_error }}</div>
+    {% elif promo_row %}
+      <div style="color:var(--green);font-size:.82rem;margin-top:.5rem">
+        ✅ Code <strong>{{ promo_row['code'] }}</strong> applied!
+        {% if promo_row['discount_type']=='percent' %}{{ promo_row['discount_value']|int }}% off{% else %}₱{{ "%.2f"|format(promo_row['discount_value']) }} off{% endif %}
+      </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
   <div class="vat-breakdown">
+    {% if pricing and pricing['has_discount'] %}
+    <div class="vat-row"><span>Original price</span><span style="text-decoration:line-through;color:var(--muted)">₱{{ "%.2f"|format(pricing['original']) }}</span></div>
+    <div class="vat-row"><span>🏷 Sale price ({{ pricing['discount_pct']|int }}% off)</span><span style="color:var(--green)">₱{{ "%.2f"|format(pricing['sale_price']) }}</span></div>
+    {% else %}
     <div class="vat-row"><span>Base price</span><span>₱{{ "%.2f"|format(base_price) }}</span></div>
+    {% endif %}
+    {% if pricing and pricing['promo_discount'] > 0 %}
+    <div class="vat-row"><span>🎁 Promo discount</span><span style="color:var(--green)">−₱{{ "%.2f"|format(pricing['promo_discount']) }}</span></div>
+    {% endif %}
     <div class="vat-row"><span>VAT (0.5%)</span><span>₱{{ "%.2f"|format(vat_amount) }}</span></div>
     <div class="vat-row total"><span>💰 Total to pay</span><span>₱{{ "%.2f"|format(total_price) }}</span></div>
   </div>
@@ -65,6 +94,7 @@
 
   <div class="form-card" style="max-width:100%">
     <form method="POST" enctype="multipart/form-data">
+      <input type="hidden" name="promo_code" value="{{ promo_code or '' }}">
       <div class="form-group">
         <label>GCash Reference Number *</label>
         <input type="text" name="gcash_ref" placeholder="e.g. 1234567890" required>
@@ -73,7 +103,7 @@
         <label>Payment Screenshot (recommended)</label>
         <input type="file" name="payment_screenshot" accept="image/*">
       </div>
-      <button type="submit" class="btn btn-primary btn-full">✅ Submit Payment</button>
+      <button type="submit" class="btn btn-primary btn-full">✅ Submit Payment — ₱{{ "%.2f"|format(total_price) }}</button>
     </form>
   </div>
 </div>

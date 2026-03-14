@@ -19,6 +19,9 @@
     <a href="{{ url_for('admin_projects') }}" class="active">Projects</a>
     <a href="{{ url_for('admin_add_project') }}">+ Add Project</a>
     <a href="{{ url_for('admin_orders') }}">All Orders</a>
+
+    <a href="{{ url_for('admin_faq') }}">❓ FAQ</a>
+    <a href="{{ url_for('admin_reviews') }}">⭐ Reviews</a>
   </div>
 
   {% if screenshots %}
@@ -41,10 +44,16 @@
         <label>Title *</label>
         <input type="text" name="title" value="{{ project['title'] }}" required>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem">
         <div class="form-group">
           <label>Price (₱) *</label>
           <input type="number" name="price" step="0.01" value="{{ project['price'] }}" required>
+        </div>
+        <div class="form-group">
+          <label>Discount % <span style="color:var(--muted);font-size:.8rem">(0 = no discount)</span></label>
+          <input type="number" name="discount_percent" step="1" min="0" max="90"
+            value="{{ project['discount_percent']|int if project['discount_percent'] else 0 }}"
+            placeholder="e.g. 20 for 20% off">
         </div>
         <div class="form-group">
           <label>Category</label>

@@ -12,6 +12,7 @@
     <a href="{{ url_for('admin_chats') }}">💬 Chats {% if stats.unread_chats>0 %}<span class="notif-dot">{{ stats.unread_chats }}</span>{% endif %}</a>
     <a href="{{ url_for('admin_faq') }}">❓ FAQ</a>
     <a href="{{ url_for('admin_reviews') }}">⭐ Reviews</a>
+    <a href="{{ url_for('admin_promos') }}">🎁 Promos</a>
   </div>
   <div class="stats-grid">
     <div class="stat-card"><div class="stat-label">Projects</div><div class="stat-value" style="color:var(--accent)">{{ stats.projects }}</div></div>

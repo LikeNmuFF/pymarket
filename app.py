@@ -5,10 +5,29 @@ import sqlite3, os, uuid, urllib.parse
 from datetime import datetime
 from functools import wraps
 from bot import maybe_bot_reply
-import secrets
 
 app = Flask(__name__)
-app.secret_key = secrets.token_hex(36)
+
+@app.after_request
+def add_security_headers(response):
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    response.headers['Content-Security-Policy'] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src https://fonts.gstatic.com; "
+        "img-src 'self' data: https://api.qrserver.com; "
+    )
+    return response
+
+app.config['SESSION_COOKIE_SECURE']   = True   # HTTPS only
+app.config['SESSION_COOKIE_HTTPONLY'] = True   # no JS access
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
+
+app.secret_key = '84209dcc3b6994ae8e8f3aa046e3de50f2c56e541440c49e348bcc854adbbcd3'
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH  = os.path.join(BASE_DIR, 'market.db')
@@ -23,7 +42,7 @@ for folder in [UPLOAD_SCREENSHOTS, UPLOAD_PROJECTS, UPLOAD_PAYMENTS, UPLOAD_AVAT
 
 ALLOWED_IMG     = {'png','jpg','jpeg','gif','webp'}
 ALLOWED_PROJECT = {'zip','rar','tar','gz','py'}
-VAT_RATE        = 0.005
+VAT_RATE        = 0.05
 GCASH_NUMBER    = '09518346025'
 GCASH_NAME      = 'RO....O B.'
 
@@ -184,11 +203,123 @@ def init_db():
                     db.execute("INSERT INTO faq (question, answer, sort_order) VALUES (?,?,?)", (q, a, s))
                 db.commit()
         except: pass
+        # New tables
+        try: db.execute("""CREATE TABLE IF NOT EXISTS promo_codes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            code TEXT UNIQUE NOT NULL,
+            discount_type TEXT NOT NULL DEFAULT 'percent',
+            discount_value REAL NOT NULL,
+            max_uses INTEGER DEFAULT 0,
+            used_count INTEGER DEFAULT 0,
+            is_active INTEGER DEFAULT 1,
+            expires_at TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP)""")
+        except: pass
+        try: db.execute("""CREATE TABLE IF NOT EXISTS promo_uses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            promo_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            order_id INTEGER,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP)""")
+        except: pass
+        try: db.execute("""CREATE TABLE IF NOT EXISTS notifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            message TEXT NOT NULL,
+            link TEXT,
+            is_read INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(user_id) REFERENCES users(id))""")
+        except: pass
+        # Project discount columns
+        try: db.execute("ALTER TABLE projects ADD COLUMN original_price REAL")
+        except: pass
+        try: db.execute("ALTER TABLE projects ADD COLUMN discount_percent REAL DEFAULT 0")
+        except: pass
+        # View count column (fast)
+        try: db.execute("ALTER TABLE projects ADD COLUMN view_count INTEGER DEFAULT 0")
+        except: pass
         try:
             db.execute("INSERT INTO users (username,email,password,is_admin) VALUES (?,?,?,1)",
-                ('admin','admin@pymarket.com', generate_password_hash('YWRtaW4xMjM=')))
+                ('admin','admin@pymarket.com', generate_password_hash('admin123')))
             db.commit()
         except: pass
+
+# ── Email config ─────────────────────────────────────────────────────────────
+import smtplib
+from email.mime.text import MIMEText
+
+MAIL_SERVER   = 'smtp.gmail.com'
+MAIL_PORT     = 587
+MAIL_USERNAME = 'kleia6678@gmail.com'  
+MAIL_PASSWORD = 'fdrrpakpxweeduww'   
+MAIL_FROM     = 'PyMarket <noreply@pymarket.com>'
+
+def send_email(to, subject, body_html):
+    if not MAIL_USERNAME or not MAIL_PASSWORD:
+        return  # Email not configured, skip silently
+    try:
+        msg = MIMEText(body_html, 'html')
+        msg['Subject'] = subject
+        msg['From']    = MAIL_FROM
+        msg['To']      = to
+        with smtplib.SMTP(MAIL_SERVER, MAIL_PORT) as s:
+            s.starttls()
+            s.login(MAIL_USERNAME, MAIL_PASSWORD)
+            s.sendmail(MAIL_USERNAME, to, msg.as_string())
+    except Exception as e:
+        print(f"Email error: {e}")
+
+def notify_user(db, user_id, message, link=None):
+    """Create an in-app notification for a user."""
+    db.execute("INSERT INTO notifications (user_id, message, link) VALUES (?,?,?)",
+        (user_id, message, link))
+    db.commit()
+
+def apply_promo(db, code, user_id, base_price):
+    """Validate and apply a promo code. Returns (discount_amount, promo_row) or (0, None)."""
+    if not code:
+        return 0, None
+    promo = db.execute("""
+        SELECT * FROM promo_codes
+        WHERE UPPER(code)=UPPER(?) AND is_active=1
+        AND (expires_at IS NULL OR expires_at > ?)
+        AND (max_uses=0 OR used_count < max_uses)
+    """, (code, datetime.now().isoformat())).fetchone()
+    if not promo:
+        return 0, None
+    # Check if user already used this code
+    used = db.execute("SELECT id FROM promo_uses WHERE promo_id=? AND user_id=?",
+        (promo['id'], user_id)).fetchone()
+    if used:
+        return 0, None
+    if promo['discount_type'] == 'percent':
+        discount = round(base_price * promo['discount_value'] / 100, 2)
+    else:
+        discount = min(promo['discount_value'], base_price)
+    return discount, promo
+
+def calc_price(project, promo_discount=0):
+    """Calculate base, sale, vat, total prices for a project."""
+    original = project['price']
+    # Project-level discount
+    if project['discount_percent'] and project['discount_percent'] > 0:
+        sale_price = round(original * (1 - project['discount_percent'] / 100), 2)
+    else:
+        sale_price = original
+    after_promo = max(0, sale_price - promo_discount)
+    vat    = round(after_promo * VAT_RATE, 2)
+    total  = round(after_promo + vat, 2)
+    return {
+        'original':     original,
+        'sale_price':   sale_price,
+        'promo_discount': promo_discount,
+        'base_price':   after_promo,
+        'vat_amount':   vat,
+        'total_price':  total,
+        'has_discount': sale_price < original,
+        'discount_pct': project['discount_percent'] or 0,
+    }
 
 def login_required(f):
     @wraps(f)
@@ -342,12 +473,9 @@ def project_detail(pid):
             "SELECT * FROM reviews WHERE project_id=? AND user_id=?",
             (pid, session['user_id'])).fetchone()
     sold_out    = len(buyers) >= 1
-    base_price  = project['price']
-    vat_amount  = round(base_price * VAT_RATE, 2)
-    total_price = round(base_price + vat_amount, 2)
+    pricing     = calc_price(project)
     active_auction = get_active_auction(db, pid)
     ended_auction  = get_ended_auction_winner(db, pid) if not active_auction else None
-    # Reviews & stats
     reviews = db.execute("""
         SELECT r.*, u.username, u.avatar FROM reviews r
         JOIN users u ON r.user_id=u.id
@@ -362,7 +490,8 @@ def project_detail(pid):
     return render_template('project_detail.html', project=project,
                            screenshots=screenshots, buyers=buyers,
                            user_bought=user_bought, user_order=user_order,
-                           sold_out=sold_out, vat_amount=vat_amount, total_price=total_price,
+                           sold_out=sold_out, pricing=pricing,
+                           vat_amount=pricing['vat_amount'], total_price=pricing['total_price'],
                            active_auction=active_auction, ended_auction=ended_auction,
                            reviews=reviews, avg_rating=avg_rating, view_count=view_count,
                            user_review=user_review)
@@ -539,20 +668,40 @@ def buy(pid):
     if existing and existing['status'] == 'approved':
         return redirect(url_for('my_orders'))
 
-    # Use winning bid amount if auction winner, otherwise normal price
+    # Use winning bid amount if auction winner, otherwise normal price with promo
+    promo_code     = request.args.get('promo','').strip() or request.form.get('promo_code','').strip()
+    promo_discount = 0
+    promo_row      = None
+    promo_error    = None
+
     if is_auction_winner:
         base_price  = ended_auction['winning_amount']
         vat_amount  = round(base_price * VAT_RATE, 2)
         total_price = round(base_price + vat_amount, 2)
         note        = f"AuctionWin-{project['title'][:15]}"
+        pricing     = {'original': base_price, 'sale_price': base_price, 'base_price': base_price,
+                       'vat_amount': vat_amount, 'total_price': total_price,
+                       'has_discount': False, 'discount_pct': 0, 'promo_discount': 0}
     else:
-        base_price  = project['price']
-        vat_amount  = round(base_price * VAT_RATE, 2)
-        total_price = round(base_price + vat_amount, 2)
+        if promo_code:
+            promo_discount, promo_row = apply_promo(db, promo_code, session['user_id'], project['price'])
+            if promo_code and not promo_row:
+                promo_error = 'Invalid, expired, or already used promo code.'
+                promo_discount = 0
+        pricing     = calc_price(project, promo_discount)
+        base_price  = pricing['base_price']
+        vat_amount  = pricing['vat_amount']
+        total_price = pricing['total_price']
         note        = f"PyMarket-{project['title'][:20]}"
 
     qr_url = gcash_qr_url(total_price, note)
+
     if request.method == 'POST':
+        # Re-apply promo on POST
+        promo_code = request.form.get('promo_code','').strip()
+        if 'apply_promo' in request.form:
+            return redirect(url_for('buy', pid=pid, promo=promo_code))
+
         gcash_ref  = request.form.get('gcash_ref','').strip()
         payment_ss = None
         if 'payment_screenshot' in request.files:
@@ -566,12 +715,21 @@ def buy(pid):
             "INSERT INTO orders (order_ref,user_id,project_id,amount,gcash_ref,payment_screenshot) VALUES (?,?,?,?,?,?)",
             (order_ref, session['user_id'], pid, total_price, gcash_ref, payment_ss))
         db.commit()
+        # Record promo use
+        if promo_row:
+            last_order = db.execute("SELECT id FROM orders WHERE order_ref=?", (order_ref,)).fetchone()
+            db.execute("INSERT INTO promo_uses (promo_id,user_id,order_id) VALUES (?,?,?)",
+                (promo_row['id'], session['user_id'], last_order['id'] if last_order else None))
+            db.execute("UPDATE promo_codes SET used_count=used_count+1 WHERE id=?", (promo_row['id'],))
+            db.commit()
         flash(f'Payment submitted! Order ref: {order_ref}. Admin will verify shortly.', 'success')
         return redirect(url_for('my_orders'))
     return render_template('buy.html', project=project, existing=existing,
-                           base_price=base_price, vat_amount=vat_amount, total_price=total_price,
+                           pricing=pricing, base_price=base_price,
+                           vat_amount=vat_amount, total_price=total_price,
                            qr_url=qr_url, gcash_number=GCASH_NUMBER, gcash_name=GCASH_NAME,
-                           is_auction_winner=is_auction_winner, ended_auction=ended_auction)
+                           is_auction_winner=is_auction_winner, ended_auction=ended_auction,
+                           promo_code=promo_code, promo_row=promo_row, promo_error=promo_error)
 
 @app.route('/my-orders')
 @login_required
@@ -869,10 +1027,11 @@ def admin_edit_project(pid):
     project=db.execute("SELECT * FROM projects WHERE id=?",(pid,)).fetchone()
     screenshots=db.execute("SELECT * FROM screenshots WHERE project_id=?",(pid,)).fetchall()
     if request.method == 'POST':
-        db.execute("UPDATE projects SET title=?,description=?,price=?,tech_stack=?,category=?,is_active=? WHERE id=?",
+        disc = float(request.form.get('discount_percent') or 0)
+        db.execute("UPDATE projects SET title=?,description=?,price=?,tech_stack=?,category=?,is_active=?,discount_percent=? WHERE id=?",
             (request.form['title'],request.form['description'],float(request.form['price']),
              request.form.get('tech_stack',''),request.form.get('category',''),
-             1 if request.form.get('is_active') else 0, pid))
+             1 if request.form.get('is_active') else 0, disc, pid))
         if 'project_file' in request.files:
             f=request.files['project_file']
             if f and f.filename and allowed_file(f.filename,ALLOWED_PROJECT):
@@ -918,7 +1077,22 @@ def admin_orders():
 def approve_order(oid):
     db=get_db()
     db.execute("UPDATE orders SET status='approved', approved_at=? WHERE id=?",(datetime.now().isoformat(),oid))
-    db.commit(); flash('Order approved!','success')
+    db.commit()
+    order = db.execute("""SELECT o.*,u.username,u.email,p.title FROM orders o
+        JOIN users u ON o.user_id=u.id JOIN projects p ON o.project_id=p.id WHERE o.id=?""",(oid,)).fetchone()
+    if order:
+        link = url_for('my_orders', _external=True)
+        notify_user(db, order['user_id'],
+            f'✅ Your order for "{order["title"]}" has been approved! You can now download your project.',
+            link)
+        send_email(order['email'], f'✅ Order Approved — {order["title"]} | PyMarket',
+            f"""<div style="font-family:sans-serif;max-width:500px;margin:auto">
+            <h2 style="color:#f848c6">✅ Order Approved!</h2>
+            <p>Hi {order['username']}! Your payment for <strong>{order['title']}</strong> has been verified.</p>
+            <p>You can now download your project from <a href="{link}">My Orders</a>.</p>
+            <p style="color:#888;font-size:12px">Order Ref: {order['order_ref']}</p>
+            <p style="color:#888;font-size:12px">PyMarket — Python Project Marketplace 🇵🇭</p></div>""")
+    flash('Order approved!','success')
     return redirect(url_for('admin_orders'))
 
 @app.route('/admin/order/<int:oid>/reject')
@@ -927,7 +1101,22 @@ def approve_order(oid):
 def reject_order(oid):
     db=get_db()
     db.execute("UPDATE orders SET status='rejected' WHERE id=?",(oid,))
-    db.commit(); flash('Order rejected.','success')
+    db.commit()
+    order = db.execute("""SELECT o.*,u.username,u.email,p.title FROM orders o
+        JOIN users u ON o.user_id=u.id JOIN projects p ON o.project_id=p.id WHERE o.id=?""",(oid,)).fetchone()
+    if order:
+        link = url_for('my_orders', _external=True)
+        notify_user(db, order['user_id'],
+            f'❌ Your order for "{order["title"]}" was rejected. Please check your payment and resubmit.',
+            link)
+        send_email(order['email'], f'❌ Order Rejected — {order["title"]} | PyMarket',
+            f"""<div style="font-family:sans-serif;max-width:500px;margin:auto">
+            <h2 style="color:#ff6584">❌ Order Rejected</h2>
+            <p>Hi {order['username']}! Unfortunately your payment for <strong>{order['title']}</strong> could not be verified.</p>
+            <p>Please double-check your GCash reference number and screenshot, then resubmit via <a href="{link}">My Orders</a>.</p>
+            <p>If you believe this is an error, contact us via Support Chat.</p>
+            <p style="color:#888;font-size:12px">PyMarket — Python Project Marketplace 🇵🇭</p></div>""")
+    flash('Order rejected.','success')
     return redirect(url_for('admin_orders'))
 
 @app.route('/admin/payment-proof/<filename>')
@@ -1086,6 +1275,128 @@ def admin_review_delete(rid):
     db.commit()
     flash('Review deleted.', 'success')
     return redirect(url_for('admin_reviews'))
+
+# ── Notifications ────────────────────────────────────────────────────────────
+
+@app.route('/notifications')
+@login_required
+def notifications():
+    db = get_db()
+    notifs = db.execute(
+        "SELECT * FROM notifications WHERE user_id=? ORDER BY created_at DESC LIMIT 50",
+        (session['user_id'],)).fetchall()
+    db.execute("UPDATE notifications SET is_read=1 WHERE user_id=?", (session['user_id'],))
+    db.commit()
+    return render_template('notifications.html', notifs=notifs)
+
+@app.route('/notifications/count')
+@login_required
+def notif_count():
+    db = get_db()
+    count = db.execute(
+        "SELECT COUNT(*) as c FROM notifications WHERE user_id=? AND is_read=0",
+        (session['user_id'],)).fetchone()['c']
+    return jsonify({'count': count})
+
+# ── About ─────────────────────────────────────────────────────────────────────
+
+@app.route('/about')
+def about():
+    if session.get('user_id'):
+        return redirect(url_for('index'))
+    db = get_db()
+    stats = {
+        'projects': db.execute("SELECT COUNT(*) as c FROM projects WHERE is_active=1").fetchone()['c'],
+        'buyers':   db.execute("SELECT COUNT(DISTINCT user_id) as c FROM orders WHERE status='approved'").fetchone()['c'],
+        'reviews':  db.execute("SELECT COUNT(*) as c FROM reviews").fetchone()['c'],
+        'auctions': db.execute("SELECT COUNT(*) as c FROM auctions").fetchone()['c'],
+    }
+    testimonials = db.execute("""
+        SELECT r.comment, r.rating, u.username, u.avatar, p.title as project_title
+        FROM reviews r JOIN users u ON r.user_id=u.id JOIN projects p ON r.project_id=p.id
+        WHERE r.comment != '' ORDER BY r.created_at DESC LIMIT 6
+    """).fetchall()
+    return render_template('about.html', stats=stats, testimonials=testimonials)
+
+# ── Promo codes (admin) ───────────────────────────────────────────────────────
+
+@app.route('/admin/promos', methods=['GET','POST'])
+@login_required
+@admin_required
+def admin_promos():
+    db = get_db()
+    if request.method == 'POST':
+        code           = request.form['code'].strip().upper()
+        discount_type  = request.form.get('discount_type','percent')
+        discount_value = float(request.form['discount_value'])
+        max_uses       = int(request.form.get('max_uses', 0))
+        expires_at     = request.form.get('expires_at') or None
+        try:
+            db.execute("""INSERT INTO promo_codes (code,discount_type,discount_value,max_uses,expires_at)
+                VALUES (?,?,?,?,?)""", (code, discount_type, discount_value, max_uses, expires_at))
+            db.commit()
+            flash(f'Promo code {code} created!', 'success')
+        except:
+            flash('Code already exists.', 'error')
+        return redirect(url_for('admin_promos'))
+    promos = db.execute("SELECT * FROM promo_codes ORDER BY created_at DESC").fetchall()
+    return render_template('admin/promos.html', promos=promos)
+
+@app.route('/admin/promo/<int:pid>/toggle')
+@login_required
+@admin_required
+def toggle_promo(pid):
+    db = get_db()
+    db.execute("UPDATE promo_codes SET is_active=CASE WHEN is_active=1 THEN 0 ELSE 1 END WHERE id=?", (pid,))
+    db.commit()
+    return redirect(url_for('admin_promos'))
+
+@app.route('/admin/promo/<int:pid>/delete')
+@login_required
+@admin_required
+def delete_promo(pid):
+    db = get_db()
+    db.execute("DELETE FROM promo_uses WHERE promo_id=?", (pid,))
+    db.execute("DELETE FROM promo_codes WHERE id=?", (pid,))
+    db.commit()
+    flash('Promo code deleted.', 'success')
+    return redirect(url_for('admin_promos'))
+
+# ── Project discount (admin) ──────────────────────────────────────────────────
+
+@app.route('/admin/project/<int:pid>/discount', methods=['POST'])
+@login_required
+@admin_required
+def set_discount(pid):
+    db = get_db()
+    pct = float(request.form.get('discount_percent', 0))
+    pct = max(0, min(pct, 90))  # cap at 90%
+    db.execute("UPDATE projects SET discount_percent=? WHERE id=?", (pct, pid))
+    db.commit()
+    flash(f'Discount set to {pct}%!', 'success')
+    return redirect(url_for('admin_edit_project', pid=pid))
+
+# ── Promo code check (AJAX) ───────────────────────────────────────────────────
+
+@app.route('/promo/check', methods=['POST'])
+@login_required
+def check_promo():
+    db = get_db()
+    code = request.form.get('code','').strip()
+    pid  = request.form.get('project_id', 0, type=int)
+    project = db.execute("SELECT * FROM projects WHERE id=?", (pid,)).fetchone()
+    if not project:
+        return jsonify({'ok': False, 'msg': 'Project not found.'})
+    discount, promo = apply_promo(db, code, session['user_id'], project['price'])
+    if not promo:
+        return jsonify({'ok': False, 'msg': 'Invalid, expired, or already used promo code.'})
+    pricing = calc_price(project, discount)
+    return jsonify({
+        'ok': True,
+        'msg': f'✅ Code applied! You save ₱{discount:.2f}',
+        'discount': discount,
+        'new_total': pricing['total_price'],
+    })
 
 if __name__ == '__main__':
     init_db()

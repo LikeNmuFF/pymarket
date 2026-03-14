@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+{% block title %}Promo Codes — Admin{% endblock %}
+{% block extra_css %}
+<style>
+.admin-nav{display:flex;gap:.5rem;margin-bottom:2rem;border-bottom:1px solid var(--border);padding-bottom:1rem;flex-wrap:wrap}
+.admin-nav a{padding:.5rem 1.1rem;border-radius:8px;font-size:.9rem;font-weight:500;color:var(--muted);transition:.2s;text-decoration:none}
+.admin-nav a:hover,.admin-nav a.active{background:var(--surface2);color:var(--text)}
+</style>
+{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="admin-nav">
+    <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('admin_projects') }}">Projects</a>
+    <a href="{{ url_for('admin_add_project') }}">+ Add</a>
+    <a href="{{ url_for('admin_orders') }}">Orders</a>
+    <a href="{{ url_for('admin_auctions') }}">🏷 Auctions</a>
+    <a href="{{ url_for('admin_chats') }}">💬 Chats</a>
+    <a href="{{ url_for('admin_faq') }}">❓ FAQ</a>
+    <a href="{{ url_for('admin_reviews') }}">⭐ Reviews</a>
+    <a href="{{ url_for('admin_promos') }}" class="active">🎁 Promos</a>
+  </div>
+
+  <h1 class="page-title" style="margin-bottom:.3rem">🎁 Promo Codes</h1>
+  <p class="page-sub" style="margin-bottom:1.5rem">Create discount codes for buyers</p>
+
+  <!-- Create form -->
+  <div class="form-card" style="margin-bottom:2rem">
+    <h3 style="font-size:1rem;font-weight:700;margin-bottom:1.2rem">➕ Create New Promo Code</h3>
+    <form method="POST">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem">
+        <div class="form-group" style="margin:0">
+          <label>Code *</label>
+          <input type="text" name="code" placeholder="e.g. SAVE20" required style="text-transform:uppercase">
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Discount Type</label>
+          <select name="discount_type">
+            <option value="percent">Percent (%)</option>
+            <option value="fixed">Fixed (₱)</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Value *</label>
+          <input type="number" name="discount_value" placeholder="e.g. 20" step="0.01" min="0" required>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Max Uses (0 = unlimited)</label>
+          <input type="number" name="max_uses" value="0" min="0">
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Expires At (optional)</label>
+          <input type="datetime-local" name="expires_at">
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary" style="margin-top:1.2rem">🎁 Create Promo</button>
+    </form>
+  </div>
+
+  <!-- Promo list -->
+  {% if promos %}
+  <div class="table-wrap" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden">
+    <table class="admin-table" style="width:100%;border-collapse:collapse">
+      <thead><tr style="background:var(--surface2);font-size:.82rem;color:var(--muted)">
+        <th style="padding:.8rem 1rem;text-align:left">Code</th>
+        <th style="padding:.8rem 1rem;text-align:left">Discount</th>
+        <th style="padding:.8rem 1rem;text-align:left">Uses</th>
+        <th style="padding:.8rem 1rem;text-align:left">Expires</th>
+        <th style="padding:.8rem 1rem;text-align:left">Status</th>
+        <th style="padding:.8rem 1rem;text-align:left">Actions</th>
+      </tr></thead>
+      <tbody>
+        {% for p in promos %}
+        <tr style="border-top:1px solid var(--border);font-size:.88rem">
+          <td style="padding:.8rem 1rem"><strong style="font-family:monospace;color:var(--accent);font-size:1rem">{{ p['code'] }}</strong></td>
+          <td style="padding:.8rem 1rem">
+            {% if p['discount_type']=='percent' %}
+              <span class="badge badge-cat">{{ p['discount_value']|int }}% off</span>
+            {% else %}
+              <span class="badge badge-cat">₱{{ "%.2f"|format(p['discount_value']) }} off</span>
+            {% endif %}
+          </td>
+          <td style="padding:.8rem 1rem">{{ p['used_count'] }}{% if p['max_uses'] > 0 %} / {{ p['max_uses'] }}{% else %} / ∞{% endif %}</td>
+          <td style="padding:.8rem 1rem;color:var(--muted);font-size:.82rem">{{ p['expires_at'][:16] if p['expires_at'] else '—' }}</td>
+          <td style="padding:.8rem 1rem">
+            {% if p['is_active'] %}
+              <span style="color:var(--green);font-weight:600">● Active</span>
+            {% else %}
+              <span style="color:var(--muted)">● Inactive</span>
+            {% endif %}
+          </td>
+          <td style="padding:.8rem 1rem">
+            <a href="{{ url_for('toggle_promo', pid=p['id']) }}" class="btn btn-outline btn-sm">
+              {{ 'Disable' if p['is_active'] else 'Enable' }}
+            </a>
+            <a href="{{ url_for('delete_promo', pid=p['id']) }}" class="btn btn-outline btn-sm" style="color:var(--accent2)"
+               onclick="return confirm('Delete this promo code?')">Delete</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:3rem;color:var(--muted)">
+    <div style="font-size:2.5rem;margin-bottom:.8rem">🎁</div>
+    <div>No promo codes yet. Create one above!</div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

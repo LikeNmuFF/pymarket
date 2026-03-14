@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}Notifications — PyMarket{% endblock %}
+{% block content %}
+<div class="container" style="max-width:680px">
+  <h1 class="page-title">🔔 Notifications</h1>
+  <p class="page-sub">{{ notifs|length }} notification{{ 's' if notifs|length != 1 }}</p>
+  {% if notifs %}
+    {% for n in notifs %}
+    <div style="background:var(--surface);border:1px solid {% if not n['is_read'] %}rgba(248,72,198,.3){% else %}var(--border){% endif %};border-radius:12px;padding:1rem 1.2rem;margin-bottom:.7rem;display:flex;align-items:flex-start;gap:1rem;transition:.2s">
+      <div style="font-size:1.4rem;flex-shrink:0;margin-top:.1rem">
+        {% if '✅' in n['message'] %}✅{% elif '❌' in n['message'] %}❌{% else %}🔔{% endif %}
+      </div>
+      <div style="flex:1">
+        <div style="font-size:.92rem;line-height:1.6;{% if not n['is_read'] %}color:var(--text);font-weight:500{% else %}color:var(--muted){% endif %}">{{ n['message'] }}</div>
+        <div style="font-size:.75rem;color:var(--muted);margin-top:.3rem">{{ n['created_at'][:16].replace('T',' ') }}</div>
+      </div>
+      {% if n['link'] %}
+      <a href="{{ n['link'] }}" class="btn btn-outline btn-sm" style="flex-shrink:0;font-size:.78rem">View →</a>
+      {% endif %}
+    </div>
+    {% endfor %}
+  {% else %}
+  <div style="text-align:center;padding:4rem 1rem;color:var(--muted)">
+    <div style="font-size:3rem;margin-bottom:1rem">🔔</div>
+    <div style="font-weight:600;margin-bottom:.4rem">No notifications yet</div>
+    <div style="font-size:.88rem">We'll notify you when your orders are approved or rejected.</div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
