@@ -83,6 +83,7 @@
           <div class="card-title" style="margin:0;flex:1">{{ p['title'] }}</div>
           {% if p['category'] %}<span class="badge badge-cat">{{ p['category'] }}</span>{% endif %}
           {% if sold_out %}<span class="badge badge-red">Sold</span>{% endif %}
+          {% if p['reserved_by'] and not sold_out %}<span class="badge" style="background:rgba(248,72,198,.12);color:var(--accent);border:1px solid rgba(248,72,198,.25)">🔖 Reserved</span>{% endif %}
           {% if has_discount and not sold_out %}<span class="badge" style="background:rgba(0,214,143,.15);color:var(--green);border:1px solid rgba(0,214,143,.3)">🏷 SALE</span>{% endif %}
         </div>
         <div class="card-desc">{{ p['description'] }}</div>
@@ -115,6 +116,8 @@
         </div>
         {% if sold_out %}
           <span class="badge badge-red" style="font-size:.72rem">Unavailable</span>
+        {% elif p['reserved_by'] %}
+          <span style="background:rgba(248,72,198,.1);color:var(--accent);border:1px solid rgba(248,72,198,.2);border-radius:20px;padding:.18rem .55rem;font-size:.72rem;font-weight:700;white-space:nowrap">🔖 {{ p['reserved_by'] }}</span>
         {% elif has_discount %}
           <span style="background:rgba(0,214,143,.12);color:var(--green);border:1px solid rgba(0,214,143,.25);border-radius:20px;padding:.18rem .55rem;font-size:.72rem;font-weight:700;white-space:nowrap">{{ p['discount_percent']|int }}% OFF</span>
         {% else %}
@@ -130,7 +133,7 @@
 </div>
 
 <!-- ── FAQ teaser ── -->
-<div class="container" style="max-width:700px;margin-top:3rem;margin-bottom:3rem;text-align:center">
+<div class="container" style="max-width:700px;margin-top:3rem;margin-bottom:3rem;text-align:center" hidden>
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:2rem">
     <div style="font-size:2rem;margin-bottom:.5rem">❓</div>
     <h3 style="font-family:var(--display);font-size:1.3rem;font-weight:800;margin-bottom:.4rem">Have questions?</h3>

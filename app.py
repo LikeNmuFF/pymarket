@@ -7,27 +7,7 @@ from functools import wraps
 from bot import maybe_bot_reply
 
 app = Flask(__name__)
-
-@app.after_request
-def add_security_headers(response):
-    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
-    response.headers['X-Content-Type-Options'] = 'nosniff'
-    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
-    response.headers['Content-Security-Policy'] = (
-        "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline'; "
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-        "font-src https://fonts.gstatic.com; "
-        "img-src 'self' data: https://api.qrserver.com; "
-    )
-    return response
-
-app.config['SESSION_COOKIE_SECURE']   = True   # HTTPS only
-app.config['SESSION_COOKIE_HTTPONLY'] = True   # no JS access
-app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-
-
-app.secret_key = '84209dcc3b6994ae8e8f3aa046e3de50f2c56e541440c49e348bcc854adbbcd3'
+app.secret_key = 'your-secret-key-change-this-in-production'
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH  = os.path.join(BASE_DIR, 'market.db')
@@ -42,9 +22,9 @@ for folder in [UPLOAD_SCREENSHOTS, UPLOAD_PROJECTS, UPLOAD_PAYMENTS, UPLOAD_AVAT
 
 ALLOWED_IMG     = {'png','jpg','jpeg','gif','webp'}
 ALLOWED_PROJECT = {'zip','rar','tar','gz','py'}
-VAT_RATE        = 0.05
-GCASH_NUMBER    = '09518346025'
-GCASH_NAME      = 'RO....O B.'
+VAT_RATE        = 0.005
+GCASH_NUMBER    = '09XX-XXX-XXXX'
+GCASH_NAME      = 'Your Name Here'
 
 def get_db():
     conn = sqlite3.connect(DB_PATH)
@@ -231,6 +211,17 @@ def init_db():
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(user_id) REFERENCES users(id))""")
         except: pass
+        # Reservations table
+        try: db.execute("""CREATE TABLE IF NOT EXISTS reservations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id INTEGER NOT NULL UNIQUE,
+            user_id INTEGER NOT NULL,
+            status TEXT DEFAULT 'pending',
+            note TEXT DEFAULT '',
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(project_id) REFERENCES projects(id),
+            FOREIGN KEY(user_id) REFERENCES users(id))""")
+        except: pass
         # Project discount columns
         try: db.execute("ALTER TABLE projects ADD COLUMN original_price REAL")
         except: pass
@@ -251,8 +242,8 @@ from email.mime.text import MIMEText
 
 MAIL_SERVER   = 'smtp.gmail.com'
 MAIL_PORT     = 587
-MAIL_USERNAME = 'kleia6678@gmail.com'  
-MAIL_PASSWORD = 'fdrrpakpxweeduww'   
+MAIL_USERNAME = ''   # ← your Gmail address
+MAIL_PASSWORD = ''   # ← your Gmail App Password
 MAIL_FROM     = 'PyMarket <noreply@pymarket.com>'
 
 def send_email(to, subject, body_html):
@@ -415,7 +406,9 @@ def index():
              LIMIT 1) as active_auction_id,
             (SELECT COUNT(*) FROM project_views v WHERE v.project_id=p.id) as view_count,
             (SELECT ROUND(AVG(r.rating),1) FROM reviews r WHERE r.project_id=p.id) as avg_rating,
-            (SELECT COUNT(*) FROM reviews r WHERE r.project_id=p.id) as review_count
+            (SELECT COUNT(*) FROM reviews r WHERE r.project_id=p.id) as review_count,
+            (SELECT u.username FROM reservations r2 JOIN users u ON r2.user_id=u.id
+             WHERE r2.project_id=p.id AND r2.status='approved' LIMIT 1) as reserved_by
         FROM projects p WHERE p.is_active=1
     """
     params = [now, now]
@@ -487,6 +480,16 @@ def project_detail(pid):
     view_count = db.execute(
         "SELECT COUNT(*) as c FROM project_views WHERE project_id=?", (pid,)
     ).fetchone()['c']
+    # Reservation info
+    reservation = db.execute("""
+        SELECT r.*, u.username FROM reservations r
+        JOIN users u ON r.user_id=u.id
+        WHERE r.project_id=?
+    """, (pid,)).fetchone()
+    user_reservation = None
+    if session.get('user_id') and reservation:
+        if int(reservation['user_id']) == int(session['user_id']):
+            user_reservation = reservation
     return render_template('project_detail.html', project=project,
                            screenshots=screenshots, buyers=buyers,
                            user_bought=user_bought, user_order=user_order,
@@ -494,7 +497,8 @@ def project_detail(pid):
                            vat_amount=pricing['vat_amount'], total_price=pricing['total_price'],
                            active_auction=active_auction, ended_auction=ended_auction,
                            reviews=reviews, avg_rating=avg_rating, view_count=view_count,
-                           user_review=user_review)
+                           user_review=user_review, reservation=reservation,
+                           user_reservation=user_reservation)
 
 @app.route('/project/<int:pid>/review', methods=['POST'])
 @login_required
@@ -644,6 +648,13 @@ def buy(pid):
     if active_auction:
         flash('This project is currently in an active auction — join the auction to get it!', 'error')
         return redirect(url_for('auction_detail', aid=active_auction['id']))
+
+    # Block if project is reserved by someone else
+    reservation = db.execute("SELECT * FROM reservations WHERE project_id=? AND status='approved'", (pid,)).fetchone()
+    if reservation and int(reservation['user_id']) != int(session['user_id']):
+        reserver = db.execute("SELECT username FROM users WHERE id=?", (reservation['user_id'],)).fetchone()
+        flash(f'This project is reserved by {reserver["username"]} and is not available for purchase.', 'error')
+        return redirect(url_for('project_detail', pid=pid))
 
     # Handle ended auction — only winner can buy, at winning price
     ended_auction = get_ended_auction_winner(db, pid)
@@ -965,12 +976,13 @@ def chat_order(order_id):
 def admin_dashboard():
     db = get_db()
     stats = {
-        'projects':     db.execute("SELECT COUNT(*) as c FROM projects").fetchone()['c'],
-        'users':        db.execute("SELECT COUNT(*) as c FROM users WHERE is_admin=0").fetchone()['c'],
-        'pending':      db.execute("SELECT COUNT(*) as c FROM orders WHERE status='pending'").fetchone()['c'],
-        'revenue':      db.execute("SELECT COALESCE(SUM(amount),0) as s FROM orders WHERE status='approved'").fetchone()['s'],
-        'unread_chats': db.execute("SELECT COUNT(DISTINCT user_id) as c FROM chats WHERE is_admin_reply=0").fetchone()['c'],
-        'auctions':     db.execute("SELECT COUNT(*) as c FROM auctions").fetchone()['c'],
+        'projects':      db.execute("SELECT COUNT(*) as c FROM projects").fetchone()['c'],
+        'users':         db.execute("SELECT COUNT(*) as c FROM users WHERE is_admin=0").fetchone()['c'],
+        'pending':       db.execute("SELECT COUNT(*) as c FROM orders WHERE status='pending'").fetchone()['c'],
+        'revenue':       db.execute("SELECT COALESCE(SUM(amount),0) as s FROM orders WHERE status='approved'").fetchone()['s'],
+        'unread_chats':  db.execute("SELECT COUNT(DISTINCT user_id) as c FROM chats WHERE is_admin_reply=0").fetchone()['c'],
+        'auctions':      db.execute("SELECT COUNT(*) as c FROM auctions").fetchone()['c'],
+        'reservations':  db.execute("SELECT COUNT(*) as c FROM reservations WHERE status='pending'").fetchone()['c'],
     }
     pending_orders = db.execute('''
         SELECT o.*, u.username, u.email, p.title, p.category FROM orders o
@@ -1276,6 +1288,101 @@ def admin_review_delete(rid):
     flash('Review deleted.', 'success')
     return redirect(url_for('admin_reviews'))
 
+# ── Reservations ─────────────────────────────────────────────────────────────
+
+@app.route('/project/<int:pid>/reserve', methods=['POST'])
+@login_required
+def reserve_project(pid):
+    if session.get('is_admin'):
+        flash('Admins cannot reserve projects.', 'error')
+        return redirect(url_for('project_detail', pid=pid))
+    db = get_db()
+    project = db.execute("SELECT * FROM projects WHERE id=? AND is_active=1", (pid,)).fetchone()
+    if not project:
+        return redirect(url_for('index'))
+    # Check if already sold
+    sold = db.execute("SELECT id FROM orders WHERE project_id=? AND status='approved'", (pid,)).fetchone()
+    if sold:
+        flash('This project is already sold.', 'error')
+        return redirect(url_for('project_detail', pid=pid))
+    # Check if already reserved by someone else
+    existing = db.execute("SELECT * FROM reservations WHERE project_id=?", (pid,)).fetchone()
+    if existing:
+        if int(existing['user_id']) == int(session['user_id']):
+            flash('You already have a reservation request for this project.', 'error')
+        else:
+            flash('This project already has a reservation.', 'error')
+        return redirect(url_for('project_detail', pid=pid))
+    note = request.form.get('note','').strip()
+    db.execute("INSERT INTO reservations (project_id, user_id, note, status) VALUES (?,?,?,'pending')",
+        (pid, session['user_id'], note))
+    db.commit()
+    # Notify admin via in-app notification
+    admin = db.execute("SELECT id FROM users WHERE is_admin=1 LIMIT 1").fetchone()
+    if admin:
+        notify_user(db, admin['id'],
+            f'🔖 {session["username"]} wants to reserve "{project["title"]}"',
+            url_for('admin_reservations'))
+    flash('Reservation request sent! Admin will review shortly. 🔖', 'success')
+    return redirect(url_for('project_detail', pid=pid))
+
+@app.route('/project/<int:pid>/reserve/cancel', methods=['POST'])
+@login_required
+def cancel_reservation(pid):
+    db = get_db()
+    res = db.execute("SELECT * FROM reservations WHERE project_id=? AND user_id=?",
+        (pid, session['user_id'])).fetchone()
+    if res:
+        db.execute("DELETE FROM reservations WHERE id=?", (res['id'],))
+        db.commit()
+        flash('Reservation cancelled.', 'success')
+    return redirect(url_for('project_detail', pid=pid))
+
+@app.route('/admin/reservations')
+@login_required
+@admin_required
+def admin_reservations():
+    db = get_db()
+    reservations = db.execute("""
+        SELECT r.*, u.username, u.email, p.title, p.category,
+            (SELECT filename FROM screenshots WHERE project_id=p.id LIMIT 1) as thumb
+        FROM reservations r
+        JOIN users u ON r.user_id=u.id
+        JOIN projects p ON r.project_id=p.id
+        ORDER BY r.created_at DESC
+    """).fetchall()
+    return render_template('admin/reservations.html', reservations=reservations)
+
+@app.route('/admin/reservation/<int:rid>/approve')
+@login_required
+@admin_required
+def approve_reservation(rid):
+    db = get_db()
+    res = db.execute("SELECT r.*,p.title,u.username FROM reservations r JOIN projects p ON r.project_id=p.id JOIN users u ON r.user_id=u.id WHERE r.id=?", (rid,)).fetchone()
+    if res:
+        db.execute("UPDATE reservations SET status='approved' WHERE id=?", (rid,))
+        db.commit()
+        notify_user(db, res['user_id'],
+            f'✅ Your reservation for "{res["title"]}" has been approved! Project is held for you.',
+            url_for('project_detail', pid=res['project_id']))
+        flash(f'Reservation approved for {res["username"]}!', 'success')
+    return redirect(url_for('admin_reservations'))
+
+@app.route('/admin/reservation/<int:rid>/release')
+@login_required
+@admin_required
+def release_reservation(rid):
+    db = get_db()
+    res = db.execute("SELECT r.*,p.title,u.username FROM reservations r JOIN projects p ON r.project_id=p.id JOIN users u ON r.user_id=u.id WHERE r.id=?", (rid,)).fetchone()
+    if res:
+        db.execute("DELETE FROM reservations WHERE id=?", (rid,))
+        db.commit()
+        notify_user(db, res['user_id'],
+            f'❌ Your reservation for "{res["title"]}" has been released by admin.',
+            url_for('project_detail', pid=res['project_id']))
+        flash('Reservation released.', 'success')
+    return redirect(url_for('admin_reservations'))
+
 # ── Notifications ────────────────────────────────────────────────────────────
 
 @app.route('/notifications')
@@ -1400,4 +1507,4 @@ def check_promo():
 
 if __name__ == '__main__':
     init_db()
-    app.run(debug=False)
+    app.run(debug=True)

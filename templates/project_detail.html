@@ -177,8 +177,42 @@
               🏁 Auction ended — awaiting winner payment
             </div>
           {% endif %}
+        {% elif reservation and reservation['status'] == 'approved' and (not session.get('user_id') or reservation['user_id']|int != session.get('user_id')|int) %}
+          <div style="background:rgba(248,72,198,.08);border:1px solid rgba(248,72,198,.22);border-radius:9px;padding:.9rem;margin-bottom:.9rem;text-align:center">
+            <div style="font-weight:700;color:var(--accent);font-size:.92rem">🔖 Reserved</div>
+            <div style="color:var(--muted);font-size:.8rem;margin-top:.2rem">Held for <strong style="color:var(--text)">{{ reservation['username'] }}</strong></div>
+          </div>
+          <button class="btn btn-outline btn-full" disabled>Not Available</button>
+        {% elif user_reservation %}
+          {% if user_reservation['status'] == 'pending' %}
+            <div style="background:rgba(255,209,102,.08);border:1px solid rgba(255,209,102,.22);border-radius:9px;padding:.9rem;margin-bottom:.9rem;text-align:center">
+              <div style="font-weight:700;color:var(--yellow);font-size:.88rem">⏳ Reservation Pending</div>
+              <div style="color:var(--muted);font-size:.78rem;margin-top:.2rem">Waiting for admin approval</div>
+            </div>
+          {% else %}
+            <div style="background:rgba(0,214,143,.08);border:1px solid rgba(0,214,143,.22);border-radius:9px;padding:.9rem;margin-bottom:.9rem;text-align:center">
+              <div style="font-weight:700;color:var(--green);font-size:.88rem">✅ Reserved for You!</div>
+              <div style="color:var(--muted);font-size:.78rem;margin-top:.2rem">Admin approved your reservation</div>
+            </div>
+            <a href="{{ url_for('buy', pid=project['id']) }}" class="btn btn-primary btn-full" style="margin-bottom:.5rem">💳 Buy via GCash</a>
+          {% endif %}
+          <form method="POST" action="{{ url_for('cancel_reservation', pid=project['id']) }}" style="margin-top:.5rem">
+            <button type="submit" class="btn btn-outline btn-full" style="color:var(--accent2);font-size:.83rem"
+              onclick="return confirm('Cancel your reservation?')">✕ Cancel Reservation</button>
+          </form>
         {% else %}
           <a href="#" onclick="requireLogin('{{ url_for('buy',pid=project['id']) }}')" class="btn btn-primary btn-full" style="margin-bottom:.5rem">💳 Buy via GCash</a>
+          {% if session.get('user_id') and not session.get('is_admin') %}
+          <button onclick="document.getElementById('reserveForm').style.display=document.getElementById('reserveForm').style.display==='none'?'block':'none'"
+            class="btn btn-outline btn-full" style="margin-bottom:.5rem">🔖 Reserve This Project</button>
+          <div id="reserveForm" style="display:none;margin-bottom:.5rem">
+            <form method="POST" action="{{ url_for('reserve_project', pid=project['id']) }}">
+              <textarea name="note" placeholder="Optional: tell admin why you want to reserve this..." rows="2"
+                style="width:100%;resize:none;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:.6rem;font-size:.83rem;margin-bottom:.5rem"></textarea>
+              <button type="submit" class="btn btn-primary btn-full" style="font-size:.87rem">📩 Send Reservation Request</button>
+            </form>
+          </div>
+          {% endif %}
           <a href="#" onclick="requireLogin('{{ url_for('chat_general') }}')" class="btn btn-outline btn-full">💬 Ask a question</a>
         {% endif %}
         <ul class="feature-list">

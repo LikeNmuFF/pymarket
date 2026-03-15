@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% block title %}Reservations — Admin{% endblock %}
+{% block extra_css %}
+<style>
+.admin-nav{display:flex;gap:.5rem;margin-bottom:2rem;border-bottom:1px solid var(--border);padding-bottom:1rem;flex-wrap:wrap}
+.admin-nav a{padding:.5rem 1.1rem;border-radius:8px;font-size:.9rem;font-weight:500;color:var(--muted);transition:.2s;text-decoration:none}
+.admin-nav a:hover,.admin-nav a.active{background:var(--surface2);color:var(--text)}
+</style>
+{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="admin-nav">
+    <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('admin_projects') }}">Projects</a>
+    <a href="{{ url_for('admin_add_project') }}">+ Add</a>
+    <a href="{{ url_for('admin_orders') }}">Orders</a>
+    <a href="{{ url_for('admin_auctions') }}">🏷 Auctions</a>
+    <a href="{{ url_for('admin_chats') }}">💬 Chats</a>
+    <a href="{{ url_for('admin_faq') }}">❓ FAQ</a>
+    <a href="{{ url_for('admin_reviews') }}">⭐ Reviews</a>
+    <a href="{{ url_for('admin_promos') }}">🎁 Promos</a>
+    <a href="{{ url_for('admin_reservations') }}" class="active">🔖 Reservations</a>
+  </div>
+
+  <h1 class="page-title" style="margin-bottom:.3rem">🔖 Reservations</h1>
+  <p class="page-sub" style="margin-bottom:1.5rem">{{ reservations|length }} reservation{{ 's' if reservations|length != 1 }}</p>
+
+  {% if reservations %}
+  <div style="display:flex;flex-direction:column;gap:1rem">
+    {% for r in reservations %}
+    <div style="background:var(--surface);border:1px solid {% if r['status']=='approved' %}rgba(248,72,198,.3){% elif r['status']=='pending' %}rgba(255,209,102,.3){% else %}var(--border){% endif %};border-radius:14px;padding:1.2rem;display:flex;align-items:center;gap:1.2rem;flex-wrap:wrap">
+
+      <!-- Thumbnail -->
+      {% if r['thumb'] %}
+      <img src="{{ url_for('static', filename='uploads/screenshots/'+r['thumb']) }}"
+        style="width:70px;height:50px;object-fit:cover;border-radius:8px;flex-shrink:0">
+      {% else %}
+      <div style="width:70px;height:50px;background:var(--surface2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0">🐍</div>
+      {% endif %}
+
+      <!-- Info -->
+      <div style="flex:1;min-width:180px">
+        <div style="font-weight:700;font-size:.97rem">{{ r['title'] }}</div>
+        {% if r['category'] %}<span class="badge badge-cat" style="font-size:.72rem">{{ r['category'] }}</span>{% endif %}
+        <div style="margin-top:.4rem;font-size:.85rem">
+          👤 <strong>{{ r['username'] }}</strong>
+          <span style="color:var(--muted);font-size:.78rem;margin-left:.5rem">{{ r['email'] }}</span>
+        </div>
+        {% if r['note'] %}
+        <div style="color:var(--muted);font-size:.82rem;margin-top:.3rem;font-style:italic">"{{ r['note'] }}"</div>
+        {% endif %}
+        <div style="color:var(--muted);font-size:.75rem;margin-top:.3rem">📅 {{ r['created_at'][:16].replace('T',' ') }}</div>
+      </div>
+
+      <!-- Status badge -->
+      <div style="text-align:center;flex-shrink:0">
+        {% if r['status'] == 'approved' %}
+          <span style="background:rgba(248,72,198,.12);color:var(--accent);border:1px solid rgba(248,72,198,.25);border-radius:20px;padding:.3rem .8rem;font-size:.8rem;font-weight:700">🔖 Reserved</span>
+        {% else %}
+          <span style="background:rgba(255,209,102,.1);color:var(--yellow);border:1px solid rgba(255,209,102,.25);border-radius:20px;padding:.3rem .8rem;font-size:.8rem;font-weight:700">⏳ Pending</span>
+        {% endif %}
+      </div>
+
+      <!-- Actions -->
+      <div style="display:flex;flex-direction:column;gap:.4rem;flex-shrink:0">
+        <a href="{{ url_for('project_detail', pid=r['project_id']) }}" class="btn btn-outline btn-sm" target="_blank"
+          style="font-size:.78rem;text-align:center">👁 View</a>
+        {% if r['status'] == 'pending' %}
+          <a href="{{ url_for('approve_reservation', rid=r['id']) }}" class="btn btn-primary btn-sm"
+            style="font-size:.78rem;text-align:center">✅ Approve</a>
+        {% endif %}
+        <a href="{{ url_for('release_reservation', rid=r['id']) }}" class="btn btn-outline btn-sm"
+          style="font-size:.78rem;color:var(--accent2);text-align:center"
+          onclick="return confirm('Release this reservation?')">🗑 Release</a>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <div style="text-align:center;padding:4rem 1rem;color:var(--muted)">
+    <div style="font-size:3rem;margin-bottom:1rem">🔖</div>
+    <div style="font-weight:600;margin-bottom:.4rem">No reservations yet</div>
+    <div style="font-size:.88rem">When users request to reserve a project, it will appear here.</div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
