@@ -1,0 +1,294 @@
+{% extends 'base.html' %}
+{% block title %}500 — Server Error{% endblock %}
+
+{% block extra_css %}
+<style>
+.err-root{
+  min-height:calc(100vh - 60px);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:4rem 1.5rem 5rem;
+  position:relative;
+  overflow:hidden;
+}
+.err-grid{
+  position:absolute; inset:0;
+  background-image:
+    linear-gradient(rgba(255,101,132,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(108,99,255,.05) 1px,transparent 1px);
+  background-size:72px 72px;
+  opacity:.55;
+  mask-image:radial-gradient(circle at 50% 45%, #000 0%, #000 42%, transparent 72%);
+  pointer-events:none;
+}
+.err-orb{
+  position:absolute;
+  border-radius:50%;
+  filter:blur(85px);
+  pointer-events:none;
+  opacity:.92;
+  animation:err-float var(--dur,10s) ease-in-out infinite;
+}
+.orb-a{width:420px;height:420px;left:-140px;top:-160px;background:rgba(255,101,132,.16);--dur:12s}
+.orb-b{width:360px;height:360px;right:-150px;top:18%;background:rgba(108,99,255,.12);--dur:15s;animation-delay:-5s}
+.orb-c{width:260px;height:260px;left:18%;bottom:-120px;background:rgba(255,209,102,.08);--dur:11s;animation-delay:-2s}
+
+.err-card{
+  width:min(980px, 100%);
+  background:linear-gradient(135deg, rgba(255,255,255,.05), rgba(255,255,255,.015));
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:24px;
+  padding:2.2rem 2rem;
+  box-shadow:0 22px 60px rgba(0,0,0,.35);
+  backdrop-filter:blur(12px);
+  position:relative;
+  z-index:1;
+  transform:perspective(1200px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));
+  transform-style:preserve-3d;
+  transition:transform .16s ease;
+}
+.err-card::before{
+  content:'';
+  position:absolute; inset:-2px;
+  border-radius:26px;
+  background:linear-gradient(135deg, rgba(255,101,132,.26), rgba(108,99,255,.18), transparent 60%);
+  opacity:.55;
+  filter:blur(12px);
+  z-index:-1;
+  animation:err-glow 4.5s ease-in-out infinite;
+}
+.err-card::after{
+  content:'';
+  position:absolute; inset:0;
+  border-radius:24px;
+  background:radial-gradient(700px 250px at 20% 0%, rgba(255,255,255,.09), transparent 60%);
+  pointer-events:none;
+}
+
+.err-top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:.75rem;
+  flex-wrap:wrap;
+  margin-bottom:1.2rem;
+}
+.err-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:.5rem;
+  padding:.35rem .7rem;
+  border-radius:999px;
+  background:rgba(255,101,132,.12);
+  border:1px solid rgba(255,101,132,.22);
+  color:var(--text);
+  font-size:.82rem;
+  font-weight:700;
+}
+.err-meta{
+  color:var(--muted);
+  font-size:.82rem;
+  font-family:var(--mono);
+  opacity:.9;
+}
+
+.err-code{
+  font-family:var(--display);
+  font-size:clamp(4rem, 14vw, 8.4rem);
+  font-weight:900;
+  line-height:.9;
+  letter-spacing:-.06em;
+  margin:.2rem 0 .7rem;
+  background:linear-gradient(90deg, var(--accent2), var(--accent), var(--yellow));
+  background-size:220% 100%;
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  position:relative;
+  animation:err-shimmer 3.2s linear infinite;
+}
+.err-title{
+  font-family:var(--display);
+  font-size:clamp(1.4rem, 3.4vw, 2.1rem);
+  font-weight:800;
+  letter-spacing:-.02em;
+  margin-bottom:.35rem;
+}
+.err-lead{
+  color:var(--muted);
+  font-size:1rem;
+  max-width:66ch;
+}
+.err-badges{
+  display:flex;
+  gap:.55rem;
+  flex-wrap:wrap;
+  margin-top:1rem;
+}
+.err-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:.55rem;
+  padding:.55rem .75rem;
+  border-radius:14px;
+  background:rgba(0,0,0,.18);
+  border:1px solid rgba(255,255,255,.07);
+  font-family:var(--mono);
+  font-size:.84rem;
+}
+.err-badge strong{
+  font-family:var(--font);
+  font-size:.78rem;
+  letter-spacing:.03em;
+  color:var(--muted);
+  font-weight:700;
+  text-transform:uppercase;
+}
+.err-actions{
+  display:flex;
+  gap:.65rem;
+  flex-wrap:wrap;
+  align-items:center;
+  margin-top:1.4rem;
+}
+.err-actions .btn-primary{
+  box-shadow:0 12px 36px rgba(255,101,132,.18);
+}
+.copy-hint{
+  color:var(--muted);
+  font-size:.82rem;
+  margin-top:.75rem;
+}
+.copy-hint span{
+  display:inline-block;
+  padding:.18rem .55rem;
+  border-radius:999px;
+  background:rgba(0,214,143,.12);
+  border:1px solid rgba(0,214,143,.25);
+  color:var(--green);
+  font-weight:700;
+  transform:translateY(2px);
+  opacity:0;
+  transition:opacity .2s ease, transform .2s ease;
+}
+.copy-hint span.show{opacity:1;transform:translateY(0)}
+
+@keyframes err-float{
+  0%,100%{transform:translateY(0) rotate(0deg)}
+  33%{transform:translateY(-18px) rotate(2deg)}
+  66%{transform:translateY(-8px) rotate(-1deg)}
+}
+@keyframes err-shimmer{
+  0%{background-position:0% 50%}
+  100%{background-position:220% 50%}
+}
+@keyframes err-glow{
+  0%,100%{opacity:.45}
+  50%{opacity:.75}
+}
+
+@media (max-width:520px){
+  .err-card{padding:1.6rem 1.2rem;border-radius:18px}
+}
+
+@media (prefers-reduced-motion: reduce){
+  .err-orb,.err-card::before,.err-code{animation:none!important}
+  .err-card{transition:none!important;transform:none!important}
+  .copy-hint span{transition:none!important}
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="err-root">
+  <div class="err-grid"></div>
+  <div class="err-orb orb-a"></div>
+  <div class="err-orb orb-b"></div>
+  <div class="err-orb orb-c"></div>
+
+  <section class="err-card" id="errCard" aria-labelledby="errTitle">
+    <div class="err-top">
+      <div class="err-pill">⚠️ Something went wrong</div>
+      {% if path %}<div class="err-meta">{{ path }}</div>{% endif %}
+    </div>
+
+    <div class="err-code">500</div>
+    <h1 class="err-title" id="errTitle">Server error</h1>
+    <p class="err-lead">The server hit an unexpected error. Please refresh the page — if it keeps happening, share the Error ID with support.</p>
+
+    <div class="err-badges" aria-label="Error details">
+      {% if error_id %}
+      <div class="err-badge"><strong>Error ID</strong> <span id="errId">{{ error_id }}</span></div>
+      {% endif %}
+    </div>
+
+    <div class="err-actions">
+      <button class="btn btn-primary" type="button" onclick="location.reload()">Reload</button>
+      <a class="btn btn-outline" href="{{ url_for('index') }}">Back to Browse</a>
+      {% if error_id %}
+      <button class="btn btn-outline" type="button" id="copyBtn">Copy Error ID</button>
+      {% endif %}
+    </div>
+
+    {% if error_id %}
+    <div class="copy-hint" aria-live="polite">
+      <span id="copiedBadge">Copied</span>
+    </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(() => {
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const card = document.getElementById('errCard');
+  if (card && !reduce) {
+    const max = 10;
+    let raf = 0;
+    let last = null;
+    function update(){
+      raf = 0;
+      if (!last) return;
+      const r = card.getBoundingClientRect();
+      const x = (last.clientX - (r.left + r.width / 2)) / (r.width / 2);
+      const y = (last.clientY - (r.top + r.height / 2)) / (r.height / 2);
+      card.style.setProperty('--ry', (x * max).toFixed(2) + 'deg');
+      card.style.setProperty('--rx', (-y * max).toFixed(2) + 'deg');
+    }
+    window.addEventListener('mousemove', (e) => {
+      last = e;
+      if (!raf) raf = requestAnimationFrame(update);
+    }, { passive: true });
+    window.addEventListener('blur', () => {
+      card.style.setProperty('--ry', '0deg');
+      card.style.setProperty('--rx', '0deg');
+    });
+  }
+
+  const copyBtn = document.getElementById('copyBtn');
+  const errId = document.getElementById('errId');
+  const badge = document.getElementById('copiedBadge');
+  if (copyBtn && errId) {
+    copyBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(errId.textContent.trim());
+      } catch (e) {
+        const t = document.createElement('textarea');
+        t.value = errId.textContent.trim();
+        document.body.appendChild(t);
+        t.select();
+        document.execCommand('copy');
+        t.remove();
+      }
+      if (badge) {
+        badge.classList.add('show');
+        window.setTimeout(() => badge.classList.remove('show'), 1400);
+      }
+    });
+  }
+})();
+</script>
+{% endblock %}
+

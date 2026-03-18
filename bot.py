@@ -2,6 +2,7 @@ from datetime import datetime
 
 BOT_NAME = "PyMarket Bot 🤖"
 
+
 def get_greeting():
     hour = (datetime.utcnow().hour + 8) % 24  # UTC+8 Philippines
     if 5 <= hour < 12:
@@ -12,6 +13,7 @@ def get_greeting():
         return "Good evening! 🌙"
     else:
         return "Hello, night owl! 🌟"
+
 
 def bot_should_reply(db, user_id, order_id=None):
     """Reply immediately if admin has never replied to this user in this thread."""
@@ -60,6 +62,7 @@ def bot_should_reply(db, user_id, order_id=None):
             return False
         return True
 
+
 def bot_get_reply(db, user_id, message, order_id=None):
     msg = message.lower().strip()
     greeting = get_greeting()
@@ -68,7 +71,8 @@ def bot_get_reply(db, user_id, message, order_id=None):
                    'good morning', 'good afternoon', 'good evening', 'good night',
                    'kumusta', 'kamusta']
     if any(w in msg for w in greet_words):
-        user = db.execute("SELECT username FROM users WHERE id=?", (user_id,)).fetchone()
+        user = db.execute(
+            "SELECT username FROM users WHERE id=?", (user_id,)).fetchone()
         name = user['username'] if user else 'there'
         lines = [
             greeting + " " + name + "! 😊",
@@ -80,29 +84,51 @@ def bot_get_reply(db, user_id, message, order_id=None):
         return "\n".join(lines)
 
     if any(w in msg for w in ['price', 'cost', 'how much', 'magkano', 'presyo',
-                               'project', 'available', 'list', 'sell', 'ano', 'meron']):
+                              'project', 'available', 'list', 'sell', 'ano', 'meron',
+                              'reserve', 'reserved', 'reservation']):
         projects = db.execute("""
             SELECT p.title, p.price, p.category,
-                (SELECT COUNT(*) FROM orders o WHERE o.project_id=p.id AND o.status='approved') as sold
+                (SELECT COUNT(*) FROM orders o WHERE o.project_id=p.id AND o.status='approved') as sold,
+                (SELECT u.username FROM reservations r JOIN users u ON r.user_id=u.id
+                 WHERE r.project_id=p.id AND r.status='approved' LIMIT 1) as reserved_by
             FROM projects p WHERE p.is_active=1 ORDER BY p.price ASC
         """).fetchall()
-        available = [p for p in projects if p['sold'] == 0]
-        sold_out  = [p for p in projects if p['sold'] > 0]
-        if available:
-            items = ["Here are our available Python projects! 🐍✨", ""]
-            for p in available:
-                cat = p['category'] or 'General'
-                items.append("• " + p['title'] + " (" + cat + ") — ₱" + "{:.2f}".format(p['price']))
+        available = [p for p in projects if p['sold']
+                     == 0 and not p['reserved_by']]
+        reserved = [p for p in projects if p['sold'] == 0 and p['reserved_by']]
+        sold_out = [p for p in projects if p['sold'] > 0]
+
+        if available or reserved or sold_out:
+            lines = []
+            if available:
+                lines += ["Here are our available Python projects! 🐍✨", ""]
+                for p in available:
+                    cat = p['category'] or 'General'
+                    lines.append(
+                        "• " + p['title'] + " (" + cat + ") — ₱" + "{:.2f}".format(p['price']))
+                lines.append("")
+
+            if reserved:
+                lines += ["🔖 Reserved (held for someone else):", ""]
+                for p in reserved:
+                    cat = p['category'] or 'General'
+                    lines.append("• " + p['title'] + " (" + cat + ") — ₱" +
+                                 "{:.2f}".format(p['price']) + " (reserved)")
+                lines.append("")
+
             if sold_out:
-                items += ["", "🔒 Already sold: " + ", ".join([p['title'] for p in sold_out])]
-            items += ["", "All prices include 0.5% VAT. Full source code, lifetime access, one buyer only! 🔒"]
-            return "\n".join(items)
-        elif sold_out:
-            return "All our current projects are sold out! 😮 New projects coming soon. Stay tuned! 🚀"
+                lines += ["🔒 Already sold:", ""]
+                for p in sold_out:
+                    lines.append("• " + p['title'])
+                lines.append("")
+
+            lines += ["All prices include 0.5% VAT. Full source code, lifetime access, one buyer only! 🔒"]
+            return "\n".join(lines)
+
         return "We're still adding projects! 🛠️ Check back soon or ask admin for the latest listings. 😊"
 
     if any(w in msg for w in ['gcash', 'pay', 'payment', 'bayad', 'how to pay',
-                               'reference', 'receipt', 'screenshot', 'send money']):
+                              'reference', 'receipt', 'screenshot', 'send money']):
         lines = [
             "Here's how to pay via GCash! 💳💙", "",
             "1️⃣ Go to the project page and click Buy via GCash",
@@ -116,7 +142,7 @@ def bot_get_reply(db, user_id, message, order_id=None):
         return "\n".join(lines)
 
     if any(w in msg for w in ['order', 'status', 'approved', 'pending', 'rejected',
-                               'when', 'kailan', 'download', 'my order', 'nasaan']):
+                              'when', 'kailan', 'download', 'my order', 'nasaan']):
         if order_id:
             order = db.execute(
                 "SELECT o.status, o.order_ref, p.title FROM orders o JOIN projects p ON o.project_id=p.id WHERE o.id=?",
@@ -127,7 +153,8 @@ def bot_get_reply(db, user_id, message, order_id=None):
                     'approved': '✅ Approved! Go to My Orders to download your project.',
                     'rejected': '❌ Rejected — please check payment details and resubmit.'
                 }
-                status_msg = status_map.get(order['status'], 'Status: ' + order['status'])
+                status_msg = status_map.get(
+                    order['status'], 'Status: ' + order['status'])
                 return "Order for " + order['title'] + " (#" + order['order_ref'] + "):\n\n" + status_msg + " 📦"
         lines = [
             "Check your order status in My Orders anytime! 📦", "",
@@ -139,7 +166,7 @@ def bot_get_reply(db, user_id, message, order_id=None):
         return "\n".join(lines)
 
     if any(w in msg for w in ['auction', 'bid', 'bidding', 'winner', 'win',
-                               'highest', 'how to bid', 'paano mag bid']):
+                              'highest', 'how to bid', 'paano mag bid']):
         lines = [
             "Here's how auctions work! 🏷️🔨", "",
             "1️⃣ Go to Auctions page to see live and upcoming auctions",
@@ -178,6 +205,7 @@ def bot_get_reply(db, user_id, message, order_id=None):
         "Just ask! 🚀"
     ]
     return "\n".join(lines)
+
 
 def maybe_bot_reply(db, user_id, message, order_id=None):
     if not bot_should_reply(db, user_id, order_id):

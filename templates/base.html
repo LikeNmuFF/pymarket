@@ -450,5 +450,331 @@ setInterval(fetchNotifCount, 30000);
 {% endif %}
 </script>
 {% block scripts %}{% endblock %}
+
+{% if session.get('is_admin') %}
+<!-- ╔══════════════════════════════════════════╗ -->
+<!-- ║     ADMIN AI FLOATING CHATBOT WIDGET     ║ -->
+<!-- ╚══════════════════════════════════════════╝ -->
+<style>
+/* ── Chatbot Container ── */
+#aai-btn {
+  position: fixed;
+  bottom: 28px; right: 28px;
+  width: 58px; height: 58px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f848c6, #6c63ff);
+  border: none; cursor: pointer;
+  font-size: 1.55rem;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 24px rgba(248,72,198,.45), 0 2px 10px rgba(108,99,255,.3);
+  z-index: 9990;
+  transition: transform .25s, box-shadow .25s;
+  animation: aai-pulse 2.8s ease-in-out infinite;
+}
+#aai-btn:hover { transform: scale(1.1); box-shadow: 0 6px 32px rgba(248,72,198,.65); }
+#aai-btn.open { animation: none; transform: rotate(15deg) scale(1.05); }
+@keyframes aai-pulse {
+  0%,100% { box-shadow: 0 4px 24px rgba(248,72,198,.45), 0 0 0 0 rgba(248,72,198,.35); }
+  50%      { box-shadow: 0 4px 24px rgba(248,72,198,.45), 0 0 0 12px rgba(248,72,198,.0); }
+}
+
+/* ── Chat Panel ── */
+#aai-panel {
+  position: fixed;
+  bottom: 100px; right: 28px;
+  width: 370px; max-width: calc(100vw - 40px);
+  background: rgba(18,18,26,.92);
+  backdrop-filter: blur(20px) saturate(1.4);
+  border: 1px solid rgba(248,72,198,.25);
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.6), 0 0 40px rgba(248,72,198,.1);
+  z-index: 9989;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+  transform-origin: bottom right;
+  transition: transform .25s cubic-bezier(.34,1.56,.64,1), opacity .2s;
+  transform: scale(.85); opacity: 0;
+}
+#aai-panel.open {
+  display: flex;
+  transform: scale(1); opacity: 1;
+}
+@keyframes aai-slide-in {
+  from { transform: scale(.85); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+
+/* ── Header ── */
+#aai-header {
+  background: linear-gradient(135deg, rgba(248,72,198,.18), rgba(108,99,255,.18));
+  border-bottom: 1px solid rgba(248,72,198,.15);
+  padding: .9rem 1.1rem;
+  display: flex; align-items: center; gap: .7rem;
+}
+#aai-header-icon {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: linear-gradient(135deg,#f848c6,#6c63ff);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem; flex-shrink: 0;
+  box-shadow: 0 2px 12px rgba(248,72,198,.4);
+}
+#aai-header-text { flex: 1 }
+#aai-header-text strong { display: block; font-size: .9rem; font-weight: 700; color: #f0f0f8 }
+#aai-header-text span { font-size: .73rem; color: #a0e0c8; }
+#aai-close {
+  background: none; border: none; color: rgba(255,255,255,.45);
+  font-size: 1.2rem; cursor: pointer; padding: .2rem .4rem;
+  border-radius: 6px; transition: background .15s, color .15s; line-height: 1;
+}
+#aai-close:hover { background: rgba(255,255,255,.08); color: #fff; }
+
+/* ── Messages ── */
+#aai-messages {
+  flex: 1; overflow-y: auto; padding: 1rem;
+  display: flex; flex-direction: column; gap: .75rem;
+  max-height: 340px;
+  scrollbar-width: thin; scrollbar-color: rgba(248,72,198,.3) transparent;
+}
+#aai-messages::-webkit-scrollbar { width: 4px }
+#aai-messages::-webkit-scrollbar-thumb { background: rgba(248,72,198,.3); border-radius: 4px }
+
+.aai-msg { display: flex; flex-direction: column; gap: .25rem; max-width: 90% }
+.aai-msg.user  { align-self: flex-end; align-items: flex-end }
+.aai-msg.bot   { align-self: flex-start; align-items: flex-start }
+
+.aai-bubble {
+  padding: .65rem .9rem; border-radius: 14px;
+  font-size: .84rem; line-height: 1.6; white-space: pre-wrap; word-break: break-word;
+}
+.aai-msg.user .aai-bubble {
+  background: linear-gradient(135deg, #f848c6, #c030a0);
+  color: #fff; border-bottom-right-radius: 4px;
+}
+.aai-msg.bot .aai-bubble {
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.1);
+  color: #e0e0f0; border-bottom-left-radius: 4px;
+}
+.aai-bubble strong { font-weight: 700; color: #f0c0e8; }
+.aai-meta { font-size: .68rem; color: rgba(255,255,255,.3); padding: 0 .3rem }
+
+/* ── Typing ── */
+.aai-typing { display: flex; align-items: center; gap: 4px; padding: .55rem .8rem }
+.aai-typing span {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: rgba(248,72,198,.6);
+  animation: aai-dot .9s ease-in-out infinite;
+}
+.aai-typing span:nth-child(2) { animation-delay: .18s }
+.aai-typing span:nth-child(3) { animation-delay: .36s }
+@keyframes aai-dot {
+  0%,80%,100% { transform: scale(.7); opacity: .5 }
+  40% { transform: scale(1); opacity: 1 }
+}
+
+/* ── Input Row ── */
+#aai-input-row {
+  display: flex; gap: .5rem; padding: .75rem 1rem;
+  border-top: 1px solid rgba(255,255,255,.07);
+  background: rgba(0,0,0,.2);
+}
+#aai-input {
+  flex: 1; background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.1); border-radius: 10px;
+  padding: .55rem .8rem; color: #f0f0f8; font-size: .85rem;
+  font-family: inherit; outline: none; transition: border-color .2s;
+  width: 1px;
+}
+#aai-input:focus { border-color: rgba(248,72,198,.5); background: rgba(255,255,255,.1) }
+#aai-input::placeholder { color: rgba(255,255,255,.3) }
+#aai-send {
+  background: linear-gradient(135deg,#f848c6,#6c63ff);
+  border: none; border-radius: 10px;
+  width: 38px; height: 38px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 1rem; color: #fff;
+  transition: opacity .2s, transform .15s;
+}
+#aai-send:hover { opacity: .88; transform: scale(1.07) }
+#aai-send:disabled { opacity: .4; cursor: not-allowed; transform: none }
+
+/* ── Quick prompts ── */
+#aai-quick {
+  display: flex; flex-wrap: wrap; gap: .35rem; padding: 0 1rem .75rem;
+}
+.aai-quick-btn {
+  background: rgba(248,72,198,.1); border: 1px solid rgba(248,72,198,.2);
+  color: rgba(248,72,198,.9); border-radius: 99px; font-size: .72rem;
+  padding: .22rem .65rem; cursor: pointer; font-family: inherit; transition: .2s;
+  white-space: nowrap;
+}
+.aai-quick-btn:hover { background: rgba(248,72,198,.22); border-color: rgba(248,72,198,.5) }
+
+@media(max-width:480px){
+  #aai-panel { width: calc(100vw - 32px); right: 16px; bottom: 90px }
+  #aai-btn   { bottom: 20px; right: 16px; width: 52px; height: 52px; font-size: 1.35rem }
+}
+</style>
+
+<!-- Floating button -->
+<button id="aai-btn" title="AI Assistant" onclick="aaiToggle()">🤖</button>
+
+<!-- Chat panel -->
+<div id="aai-panel">
+  <div id="aai-header">
+    <div id="aai-header-icon">🤖</div>
+    <div id="aai-header-text">
+      <strong>PyMarket AI</strong>
+      <span>🟢 Admin Assistant — Live Data</span>
+    </div>
+    <button id="aai-close" onclick="aaiToggle()" title="Close">✕</button>
+  </div>
+
+  <div id="aai-messages">
+    <!-- Welcome message -->
+    <div class="aai-msg bot">
+      <div class="aai-bubble">👋 Hey Admin! I'm your <strong>PyMarket AI Assistant</strong>.
+
+Ask me anything about the market:
+• 💰 Revenue &amp; sales
+• 🏷️ Discounts &amp; sale prices
+• 📦 Orders &amp; buyers
+• 🏷️ Auctions &amp; bids
+• 👥 Customer stats
+• 🎁 Promo codes</div>
+      <div class="aai-meta">AI Assistant</div>
+    </div>
+  </div>
+
+  <!-- Quick prompts -->
+  <div id="aai-quick">
+    <button class="aai-quick-btn" onclick="aaiSendQuick('Sales summary')">💰 Revenue</button>
+    <button class="aai-quick-btn" onclick="aaiSendQuick('Show discounts')">🏷️ Discounts</button>
+    <button class="aai-quick-btn" onclick="aaiSendQuick('Pending orders')">📦 Orders</button>
+    <button class="aai-quick-btn" onclick="aaiSendQuick('Auction summary')">🎯 Auctions</button>
+    <button class="aai-quick-btn" onclick="aaiSendQuick('Customer stats')">👥 Customers</button>
+    <button class="aai-quick-btn" onclick="aaiSendQuick('Dashboard overview')">📊 Dashboard</button>
+  </div>
+
+  <div id="aai-input-row">
+    <input id="aai-input" type="text" placeholder="Ask me anything about the market…" autocomplete="off"
+           onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();aaiSend()}" />
+    <button id="aai-send" onclick="aaiSend()" title="Send">➤</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const panel  = document.getElementById('aai-panel');
+  const btn    = document.getElementById('aai-btn');
+  const msgs   = document.getElementById('aai-messages');
+  const input  = document.getElementById('aai-input');
+  const send   = document.getElementById('aai-send');
+  const quick  = document.getElementById('aai-quick');
+  let isOpen   = false;
+  let busy     = false;
+
+  window.aaiToggle = function() {
+    isOpen = !isOpen;
+    btn.classList.toggle('open', isOpen);
+    if (isOpen) {
+      panel.style.display = 'flex';
+      // Trigger animation
+      requestAnimationFrame(()=>{ panel.classList.add('open'); });
+      input.focus();
+    } else {
+      panel.classList.remove('open');
+      setTimeout(()=>{ panel.style.display = 'none'; }, 220);
+    }
+  };
+
+  function formatTime() {
+    return new Date().toLocaleTimeString('en-PH', {hour:'2-digit',minute:'2-digit'});
+  }
+
+  function renderMarkdown(text) {
+    // Bold: **text**
+    text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    // Escape HTML entities that might slip through (but preserve our tags)
+    return text;
+  }
+
+  function appendMsg(role, text) {
+    const div = document.createElement('div');
+    div.className = `aai-msg ${role}`;
+    const bubble = document.createElement('div');
+    bubble.className = 'aai-bubble';
+    bubble.innerHTML = renderMarkdown(escapeHtml(text)).replace(/\n/g, '<br>');
+    const meta = document.createElement('div');
+    meta.className = 'aai-meta';
+    meta.textContent = role === 'user' ? `You · ${formatTime()}` : `AI · ${formatTime()}`;
+    div.appendChild(bubble);
+    div.appendChild(meta);
+    msgs.appendChild(div);
+    msgs.scrollTop = msgs.scrollHeight;
+    return div;
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function showTyping() {
+    const d = document.createElement('div');
+    d.className = 'aai-msg bot'; d.id = 'aai-typing-msg';
+    d.innerHTML = '<div class="aai-bubble aai-typing"><span></span><span></span><span></span></div>';
+    msgs.appendChild(d);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+  function hideTyping() {
+    const t = document.getElementById('aai-typing-msg');
+    if (t) t.remove();
+  }
+
+  async function doSend(question) {
+    if (!question || busy) return;
+    busy = true;
+    send.disabled = true;
+    input.value = '';
+    input.disabled = true;
+
+    // Hide quick prompts after first message
+    if (quick) quick.style.display = 'none';
+
+    appendMsg('user', question);
+    showTyping();
+
+    try {
+      const res = await fetch('/admin/ai', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({question})
+      });
+      const data = await res.json();
+      hideTyping();
+      appendMsg('bot', data.reply || 'Sorry, I couldn\'t get a response. Try again!');
+    } catch(e) {
+      hideTyping();
+      appendMsg('bot', '⚠️ Connection error. Make sure the server is running and try again.');
+    } finally {
+      busy = false;
+      send.disabled = false;
+      input.disabled = false;
+      input.focus();
+    }
+  }
+
+  window.aaiSend = function() {
+    doSend(input.value.trim());
+  };
+
+  window.aaiSendQuick = function(q) {
+    if (busy) return;
+    doSend(q);
+  };
+})();
+</script>
+{% endif %}
 </body>
 </html>

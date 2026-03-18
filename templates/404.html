@@ -1,0 +1,282 @@
+{% extends 'base.html' %}
+{% block title %}404 — Page Not Found{% endblock %}
+
+{% block extra_css %}
+<style>
+.err-root{
+  min-height:calc(100vh - 60px);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:4rem 1.5rem 5rem;
+  position:relative;
+  overflow:hidden;
+}
+.err-grid{
+  position:absolute; inset:0;
+  background-image:
+    linear-gradient(rgba(108,99,255,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,101,132,.05) 1px,transparent 1px);
+  background-size:70px 70px;
+  opacity:.55;
+  mask-image:radial-gradient(circle at 50% 45%, #000 0%, #000 42%, transparent 72%);
+  pointer-events:none;
+}
+.err-orb{
+  position:absolute;
+  border-radius:50%;
+  filter:blur(80px);
+  pointer-events:none;
+  opacity:.9;
+  animation:err-float var(--dur,10s) ease-in-out infinite;
+}
+.orb-a{width:420px;height:420px;left:-120px;top:-140px;background:rgba(108,99,255,.16);--dur:12s}
+.orb-b{width:360px;height:360px;right:-140px;top:18%;background:rgba(255,101,132,.12);--dur:14s;animation-delay:-4s}
+.orb-c{width:260px;height:260px;left:18%;bottom:-120px;background:rgba(0,214,143,.08);--dur:11s;animation-delay:-2s}
+
+.err-card{
+  width:min(980px, 100%);
+  background:linear-gradient(135deg, rgba(255,255,255,.05), rgba(255,255,255,.015));
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:24px;
+  padding:2.2rem 2rem;
+  box-shadow:0 22px 60px rgba(0,0,0,.35);
+  backdrop-filter:blur(12px);
+  position:relative;
+  z-index:1;
+  transform:perspective(1200px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));
+  transform-style:preserve-3d;
+  transition:transform .16s ease;
+}
+.err-card::before{
+  content:'';
+  position:absolute; inset:-2px;
+  border-radius:26px;
+  background:linear-gradient(135deg, rgba(108,99,255,.26), rgba(255,101,132,.18), transparent 60%);
+  opacity:.55;
+  filter:blur(12px);
+  z-index:-1;
+  animation:err-glow 4.5s ease-in-out infinite;
+}
+.err-card::after{
+  content:'';
+  position:absolute; inset:0;
+  border-radius:24px;
+  background:radial-gradient(700px 250px at 20% 0%, rgba(255,255,255,.09), transparent 60%);
+  pointer-events:none;
+}
+
+.err-top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:.75rem;
+  flex-wrap:wrap;
+  margin-bottom:1.2rem;
+}
+.err-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:.5rem;
+  padding:.35rem .7rem;
+  border-radius:999px;
+  background:rgba(108,99,255,.12);
+  border:1px solid rgba(108,99,255,.22);
+  color:var(--text);
+  font-size:.82rem;
+  font-weight:600;
+}
+.err-meta{
+  color:var(--muted);
+  font-size:.82rem;
+  font-family:var(--mono);
+  opacity:.9;
+}
+
+.err-code{
+  font-family:var(--display);
+  font-size:clamp(4rem, 14vw, 8.4rem);
+  font-weight:900;
+  line-height:.9;
+  letter-spacing:-.06em;
+  margin:.2rem 0 .7rem;
+  background:linear-gradient(90deg, var(--accent2), var(--accent), var(--accent2));
+  background-size:220% 100%;
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  position:relative;
+  animation:err-shimmer 3.2s linear infinite;
+}
+.err-code.glitch::before,
+.err-code.glitch::after{
+  content:attr(data-text);
+  position:absolute; inset:0;
+  -webkit-text-fill-color:transparent;
+  background:inherit;
+  -webkit-background-clip:text;
+  opacity:.55;
+}
+.err-code.glitch::before{
+  transform:translate(-3px, 1px);
+  text-shadow:-2px 0 rgba(16,191,210,.75);
+  clip-path:inset(0 0 55% 0);
+  animation:err-glitch-a 2.2s infinite steps(2, end);
+}
+.err-code.glitch::after{
+  transform:translate(3px, -1px);
+  text-shadow:2px 0 rgba(255,101,132,.75);
+  clip-path:inset(48% 0 0 0);
+  animation:err-glitch-b 2.6s infinite steps(2, end);
+}
+
+.err-title{
+  font-family:var(--display);
+  font-size:clamp(1.4rem, 3.4vw, 2.1rem);
+  font-weight:800;
+  letter-spacing:-.02em;
+  margin-bottom:.35rem;
+}
+.err-lead{
+  color:var(--muted);
+  font-size:1rem;
+  max-width:62ch;
+}
+.err-path{
+  margin-top:1rem;
+  padding:.75rem .95rem;
+  border-radius:14px;
+  background:rgba(0,0,0,.18);
+  border:1px solid rgba(255,255,255,.07);
+  display:flex;
+  gap:.7rem;
+  align-items:center;
+  flex-wrap:wrap;
+}
+.err-path span{color:var(--muted);font-size:.82rem;font-weight:600;letter-spacing:.02em}
+.err-path code{
+  font-family:var(--mono);
+  font-size:.86rem;
+  color:var(--text);
+  opacity:.95;
+  word-break:break-all;
+}
+.err-actions{
+  display:flex;
+  gap:.65rem;
+  flex-wrap:wrap;
+  align-items:center;
+  margin-top:1.4rem;
+}
+.err-actions .btn-primary{
+  box-shadow:0 12px 36px rgba(108,99,255,.22);
+}
+
+@keyframes err-float{
+  0%,100%{transform:translateY(0) rotate(0deg)}
+  33%{transform:translateY(-18px) rotate(2deg)}
+  66%{transform:translateY(-8px) rotate(-1deg)}
+}
+@keyframes err-shimmer{
+  0%{background-position:0% 50%}
+  100%{background-position:220% 50%}
+}
+@keyframes err-glow{
+  0%,100%{opacity:.45}
+  50%{opacity:.75}
+}
+@keyframes err-glitch-a{
+  0%{clip-path:inset(0 0 58% 0);transform:translate(-3px,1px)}
+  20%{clip-path:inset(10% 0 40% 0);transform:translate(-1px,0)}
+  40%{clip-path:inset(2% 0 62% 0);transform:translate(-4px,2px)}
+  60%{clip-path:inset(18% 0 35% 0);transform:translate(-2px,1px)}
+  80%{clip-path:inset(6% 0 55% 0);transform:translate(-3px,0)}
+  100%{clip-path:inset(0 0 58% 0);transform:translate(-3px,1px)}
+}
+@keyframes err-glitch-b{
+  0%{clip-path:inset(46% 0 0 0);transform:translate(3px,-1px)}
+  25%{clip-path:inset(60% 0 0 0);transform:translate(2px,1px)}
+  50%{clip-path:inset(44% 0 0 0);transform:translate(4px,0)}
+  75%{clip-path:inset(56% 0 0 0);transform:translate(1px,-1px)}
+  100%{clip-path:inset(46% 0 0 0);transform:translate(3px,-1px)}
+}
+
+@media (max-width:520px){
+  .err-card{padding:1.6rem 1.2rem;border-radius:18px}
+  .err-path{border-radius:12px}
+}
+
+@media (prefers-reduced-motion: reduce){
+  .err-orb,.err-card::before,.err-code,.err-code::before,.err-code::after{animation:none!important}
+  .err-card{transition:none!important;transform:none!important}
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="err-root">
+  <div class="err-grid"></div>
+  <div class="err-orb orb-a"></div>
+  <div class="err-orb orb-b"></div>
+  <div class="err-orb orb-c"></div>
+
+  <section class="err-card" id="errCard" aria-labelledby="errTitle">
+    <div class="err-top">
+      <div class="err-pill">🧭 Lost in PyMarket</div>
+      {% if path %}<div class="err-meta">{{ path }}</div>{% endif %}
+    </div>
+
+    <div class="err-code glitch" data-text="404">404</div>
+    <h1 class="err-title" id="errTitle">Page not found</h1>
+    <p class="err-lead">That link doesn’t exist (or it moved). Try heading back to the marketplace.</p>
+
+    {% if path %}
+    <div class="err-path" aria-label="Requested path">
+      <span>Requested</span>
+      <code>{{ path }}</code>
+    </div>
+    {% endif %}
+
+    <div class="err-actions">
+      <a class="btn btn-primary" href="{{ url_for('index') }}">Back to Browse</a>
+      <button class="btn btn-outline" type="button" onclick="history.back()">Go Back</button>
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(() => {
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce) return;
+
+  const card = document.getElementById('errCard');
+  if (!card) return;
+
+  const max = 10;
+  let raf = 0;
+  let last = null;
+
+  function update(){
+    raf = 0;
+    if (!last) return;
+    const r = card.getBoundingClientRect();
+    const x = (last.clientX - (r.left + r.width / 2)) / (r.width / 2);
+    const y = (last.clientY - (r.top + r.height / 2)) / (r.height / 2);
+    card.style.setProperty('--ry', (x * max).toFixed(2) + 'deg');
+    card.style.setProperty('--rx', (-y * max).toFixed(2) + 'deg');
+  }
+
+  window.addEventListener('mousemove', (e) => {
+    last = e;
+    if (!raf) raf = requestAnimationFrame(update);
+  }, { passive: true });
+
+  window.addEventListener('blur', () => {
+    card.style.setProperty('--ry', '0deg');
+    card.style.setProperty('--rx', '0deg');
+  });
+})();
+</script>
+{% endblock %}
+
