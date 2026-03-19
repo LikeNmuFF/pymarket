@@ -169,6 +169,108 @@ tr:hover td{background:rgba(108,99,255,.025)}
 .empty-icon{font-size:3rem;margin-bottom:.8rem}
 footer{text-align:center;padding:1.8rem 1rem;color:var(--muted);font-size:.82rem;border-top:1px solid var(--border);margin-top:3rem}
 
+/* FLOATING SUPPORT */
+.support-float{
+  position:fixed;right:22px;bottom:26px;z-index:220;
+  width:60px;height:60px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:#fff;font-size:1.45rem;
+  box-shadow:0 14px 32px rgba(108,99,255,.28);
+  border:1px solid rgba(255,255,255,.16);cursor:pointer;
+  transition:transform .2s,box-shadow .2s,opacity .2s;
+}
+.support-float:hover{
+  transform:translateY(-2px) scale(1.03);
+  box-shadow:0 18px 38px rgba(108,99,255,.34);
+}
+.support-float-label{
+  position:absolute;right:72px;top:50%;transform:translateY(-50%);
+  background:var(--surface);color:var(--text);
+  border:1px solid var(--border);border-radius:999px;
+  padding:.5rem .8rem;font-size:.82rem;font-weight:600;
+  box-shadow:0 10px 24px var(--shadow);
+  white-space:nowrap;opacity:0;pointer-events:none;
+  transition:opacity .2s,transform .2s;
+}
+.support-float:hover .support-float-label,
+.support-float:focus-visible .support-float-label{
+  opacity:1;transform:translateY(-50%) translateX(-4px);
+}
+.support-panel{
+  position:fixed;right:22px;bottom:98px;z-index:219;
+  width:360px;max-width:calc(100vw - 28px);
+  background:var(--surface);
+  border:1px solid var(--border);border-radius:18px;
+  box-shadow:0 18px 44px var(--shadow);
+  backdrop-filter:blur(16px);
+  display:none;flex-direction:column;overflow:hidden;
+  transform:translateY(14px) scale(.96);opacity:0;
+  transition:transform .22s ease,opacity .22s ease;
+}
+.support-panel.open{display:flex;transform:translateY(0) scale(1);opacity:1}
+.support-panel-header{
+  display:flex;align-items:center;justify-content:space-between;gap:.8rem;
+  padding:1rem 1rem .85rem;background:linear-gradient(135deg,rgba(108,99,255,.14),rgba(255,101,132,.08));
+  border-bottom:1px solid var(--border);
+}
+.support-panel-title{display:flex;align-items:center;gap:.75rem}
+.support-panel-icon{
+  width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:1.05rem;flex-shrink:0;
+}
+.support-panel-title strong{display:block;font-size:.95rem}
+.support-panel-title span{display:block;font-size:.76rem;color:var(--muted)}
+.support-panel-close{
+  width:34px;height:34px;border:none;border-radius:50%;cursor:pointer;
+  background:var(--surface2);color:var(--text);font-size:1rem;transition:.2s;
+}
+.support-panel-close:hover{background:var(--border)}
+.support-panel-messages{
+  display:flex;flex-direction:column;gap:.55rem;
+  min-height:320px;max-height:420px;overflow-y:auto;
+  padding:1rem;background:rgba(108,99,255,.03);
+}
+.support-empty{
+  text-align:center;padding:1.3rem;color:var(--muted);font-size:.85rem;
+}
+.support-msg{display:flex;flex-direction:column;max-width:84%}
+.support-msg.mine{align-self:flex-end;align-items:flex-end}
+.support-msg.theirs{align-self:flex-start;align-items:flex-start}
+.support-bubble{
+  padding:.72rem .92rem;border-radius:14px;font-size:.87rem;line-height:1.55;
+  white-space:pre-line;word-break:break-word;
+}
+.support-msg.mine .support-bubble{background:var(--accent);color:#fff;border-bottom-right-radius:4px}
+.support-msg.theirs .support-bubble{background:var(--surface2);border:1px solid var(--border);border-bottom-left-radius:4px}
+.support-msg.bot .support-bubble{background:rgba(16,191,210,.1);border:1px solid rgba(16,191,210,.24)}
+.support-meta{font-size:.7rem;color:var(--muted);margin-top:.22rem}
+.support-typing{display:flex;align-items:center;gap:4px;padding:.15rem .1rem}
+.support-typing span{
+  width:7px;height:7px;border-radius:50%;background:rgba(108,99,255,.65);
+  animation:support-dot .9s ease-in-out infinite;
+}
+.support-typing span:nth-child(2){animation-delay:.14s}
+.support-typing span:nth-child(3){animation-delay:.28s}
+@keyframes support-dot{
+  0%,80%,100%{transform:scale(.72);opacity:.45}
+  40%{transform:scale(1);opacity:1}
+}
+.support-panel-actions{
+  display:flex;align-items:center;justify-content:space-between;gap:.75rem;
+  padding:.75rem 1rem;border-top:1px solid var(--border);background:var(--surface);
+}
+.support-open-link{font-size:.79rem;font-weight:600;color:var(--accent)}
+.support-input-row{
+  display:flex;gap:.5rem;padding:.9rem 1rem 1rem;background:var(--surface);border-top:1px solid var(--border);
+}
+.support-input-row input{flex:1;min-width:0}
+.support-send{
+  width:42px;height:42px;border:none;border-radius:12px;cursor:pointer;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:1rem;flex-shrink:0;
+}
+.support-send:disabled{opacity:.45;cursor:not-allowed}
+
 /* RESPONSIVE */
 @media(max-width:1024px){
   .container{padding:1.5rem 1.2rem}
@@ -219,6 +321,10 @@ footer{text-align:center;padding:1.8rem 1rem;color:var(--muted);font-size:.82rem
   .profile-avatar{width:70px;height:70px;font-size:1.8rem}
   .admin-nav a{font-size:.78rem;padding:.38rem .7rem}
   footer{padding:1.2rem .8rem}
+  .support-float{right:16px;bottom:18px;width:56px;height:56px}
+  .support-float-label{display:none}
+  .support-panel{right:16px;bottom:84px;width:calc(100vw - 24px);max-width:none}
+  .support-panel-messages{min-height:280px;max-height:50vh}
 }
 </style>
 {% block extra_css %}{% endblock %}
@@ -319,6 +425,44 @@ footer{text-align:center;padding:1.8rem 1rem;color:var(--muted);font-size:.82rem
 {% endwith %}
 
 {% block content %}{% endblock %}
+
+{% if not session.get('is_admin') %}
+  <button
+    type="button"
+    class="support-float"
+    aria-label="Open support chat"
+    title="Support"
+    onclick="toggleSupportPanel()"
+  >
+    <span aria-hidden="true">💬</span>
+    <span class="support-float-label">Support</span>
+  </button>
+  {% if session.get('user_id') %}
+  <div class="support-panel" id="supportPanel" aria-hidden="true">
+    <div class="support-panel-header">
+      <div class="support-panel-title">
+        <div class="support-panel-icon">💬</div>
+        <div>
+          <strong>Support Chat</strong>
+          <span>Chat with admin and PyMarket bot</span>
+        </div>
+      </div>
+      <button type="button" class="support-panel-close" onclick="toggleSupportPanel(false)" aria-label="Close support chat">✕</button>
+    </div>
+    <div class="support-panel-messages" id="supportMessages">
+      <div class="support-empty">Loading conversation…</div>
+    </div>
+    <div class="support-panel-actions">
+      <span style="font-size:.77rem;color:var(--muted)">Replies appear here in real time after sending.</span>
+      <a href="{{ url_for('chat_general') }}" class="support-open-link">Open full chat</a>
+    </div>
+    <div class="support-input-row">
+      <input id="supportInput" type="text" placeholder="Type your message..." autocomplete="off">
+      <button type="button" class="support-send" id="supportSend" onclick="sendSupportMessage()" aria-label="Send support message">➤</button>
+    </div>
+  </div>
+  {% endif %}
+{% endif %}
 
 <!-- Login Modal -->
 <div class="modal-overlay" id="loginModal">
@@ -447,6 +591,194 @@ async function fetchNotifCount() {
 }
 fetchNotifCount();
 setInterval(fetchNotifCount, 30000);
+
+const supportPanel = document.getElementById('supportPanel');
+const supportMessages = document.getElementById('supportMessages');
+const supportInput = document.getElementById('supportInput');
+const supportSend = document.getElementById('supportSend');
+let supportOpen = false;
+let supportLoaded = false;
+let supportBusy = false;
+let supportPollTimer = null;
+let supportLastSignature = '';
+
+function supportTimeLabel(isoText) {
+  if (!isoText) return '';
+  const date = new Date(isoText.replace(' ', 'T'));
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+}
+
+function renderSupportMessage(message) {
+  const wrap = document.createElement('div');
+  const mine = !message.is_admin_reply;
+  wrap.className = `support-msg ${mine ? 'mine' : 'theirs'}${message.is_bot ? ' bot' : ''}`;
+
+  const bubble = document.createElement('div');
+  bubble.className = 'support-bubble';
+  bubble.textContent = message.message || '';
+
+  const meta = document.createElement('div');
+  meta.className = 'support-meta';
+  meta.textContent = message.is_bot ? `PyMarket Bot · ${supportTimeLabel(message.created_at)}` :
+                     message.is_admin_reply ? `Admin · ${supportTimeLabel(message.created_at)}` :
+                     `You · ${supportTimeLabel(message.created_at)}`;
+
+  wrap.appendChild(bubble);
+  wrap.appendChild(meta);
+  supportMessages.appendChild(wrap);
+}
+
+function scrollSupportToBottom() {
+  if (supportMessages) supportMessages.scrollTop = supportMessages.scrollHeight;
+}
+
+function renderSupportMessagesList(messages, preserveScroll) {
+  if (!supportMessages) return;
+  const nearBottom = supportMessages.scrollHeight - supportMessages.scrollTop - supportMessages.clientHeight < 48;
+  supportMessages.innerHTML = '';
+  if (!messages || !messages.length) {
+    supportMessages.innerHTML = '<div class="support-empty">No messages yet. Start the conversation.</div>';
+    return;
+  }
+  messages.forEach(renderSupportMessage);
+  if (!preserveScroll || nearBottom) scrollSupportToBottom();
+}
+
+function getSupportSignature(messages) {
+  return JSON.stringify((messages || []).map(function(message) {
+    return [message.created_at, message.is_admin_reply, message.message];
+  }));
+}
+
+function showSupportTyping() {
+  const typing = document.createElement('div');
+  typing.className = 'support-msg theirs bot';
+  typing.id = 'supportTyping';
+  typing.innerHTML = '<div class="support-bubble"><div class="support-typing"><span></span><span></span><span></span></div></div>';
+  supportMessages.appendChild(typing);
+  scrollSupportToBottom();
+}
+
+function hideSupportTyping() {
+  const typing = document.getElementById('supportTyping');
+  if (typing) typing.remove();
+}
+
+async function loadSupportMessages() {
+  if (!supportMessages) return;
+  const preserveScroll = arguments[0] && arguments[0].preserveScroll;
+  const silent = arguments[0] && arguments[0].silent;
+  if (!silent) {
+    supportMessages.innerHTML = '<div class="support-empty">Loading conversation…</div>';
+  }
+  try {
+    const res = await fetch('/chat/widget', {headers: {'Accept': 'application/json'}});
+    const data = await res.json();
+    const messages = data.messages || [];
+    const nextSignature = getSupportSignature(messages);
+    if (nextSignature !== supportLastSignature || !supportLoaded) {
+      renderSupportMessagesList(messages, preserveScroll);
+      supportLastSignature = nextSignature;
+    }
+    supportLoaded = true;
+  } catch (e) {
+    if (!silent) {
+      supportMessages.innerHTML = '<div class="support-empty">Unable to load support chat right now.</div>';
+    }
+  }
+}
+
+function startSupportPolling() {
+  if (supportPollTimer || !supportPanel) return;
+  supportPollTimer = setInterval(function() {
+    if (!supportOpen || supportBusy || document.hidden) return;
+    loadSupportMessages({preserveScroll: true, silent: true});
+  }, 5000);
+}
+
+function stopSupportPolling() {
+  if (!supportPollTimer) return;
+  clearInterval(supportPollTimer);
+  supportPollTimer = null;
+}
+
+window.toggleSupportPanel = async function(forceState) {
+  if (!supportPanel) {
+    requireLogin('{{ url_for('chat_general') }}');
+    return;
+  }
+  supportOpen = typeof forceState === 'boolean' ? forceState : !supportOpen;
+  supportPanel.classList.toggle('open', supportOpen);
+  supportPanel.setAttribute('aria-hidden', supportOpen ? 'false' : 'true');
+  if (supportOpen) {
+    if (!supportLoaded) await loadSupportMessages();
+    else await loadSupportMessages({preserveScroll: true, silent: true});
+    startSupportPolling();
+    if (supportInput) supportInput.focus();
+    scrollSupportToBottom();
+  } else {
+    stopSupportPolling();
+  }
+};
+
+window.sendSupportMessage = async function() {
+  if (!supportInput || !supportMessages || supportBusy) return;
+  const message = supportInput.value.trim();
+  if (!message) return;
+
+  supportBusy = true;
+  supportInput.disabled = true;
+  supportSend.disabled = true;
+  supportInput.value = '';
+  hideSupportTyping();
+  renderSupportMessage({message, is_admin_reply:false, is_bot:false, created_at:new Date().toISOString()});
+  showSupportTyping();
+
+  try {
+    const res = await fetch('/chat/widget', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+      body: JSON.stringify({message})
+    });
+    const data = await res.json();
+    hideSupportTyping();
+    const messages = data.messages || [];
+    renderSupportMessagesList(messages, false);
+    supportLastSignature = getSupportSignature(messages);
+  } catch (e) {
+    hideSupportTyping();
+    renderSupportMessage({
+      message: 'Connection error. Please try again or open the full support chat.',
+      is_admin_reply: true,
+      is_bot: false,
+      created_at: new Date().toISOString()
+    });
+  } finally {
+    supportBusy = false;
+    supportInput.disabled = false;
+    supportSend.disabled = false;
+    supportInput.focus();
+  }
+};
+
+if (supportInput) {
+  supportInput.addEventListener('keydown', function(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      sendSupportMessage();
+    }
+  });
+}
+
+document.addEventListener('visibilitychange', function() {
+  if (document.hidden) {
+    stopSupportPolling();
+  } else if (supportOpen) {
+    loadSupportMessages({preserveScroll: true, silent: true});
+    startSupportPolling();
+  }
+});
 {% endif %}
 </script>
 {% block scripts %}{% endblock %}

@@ -37,7 +37,7 @@ Payments are handled via **GCash** 💙, making it seamless for Filipino buyers.
 <br/>
 
 <div align="center">
-<img src="https://capsule-render.vercel.app/api?type=rect&color=gradient&customColorList=12,9,2&height=50&text=🔒%20Exclusive%20Ownership%20%20%7C%20%20🏷️%20Live%20Auctions%20%20%7C%20%20💳%20GCash%20%20%7C%20%20🤖%20Bot%20%20%7C%20%20🌙%20Dark%20Mode&fontSize=14&fontColor=fff&animation=fadeIn" width="100%"/>
+<img src="https://capsule-render.vercel.app/api?type=rect&color=gradient&customColorList=12,9,2&height=50&text=🔒%20Exclusive%20Ownership%20%20%7C%20%20🏷️%20Live%20Auctions%20%20%7C%20%20💳%20GCash%20%20%7C%20%20🤖%20AI%20Chatbot%20%20%7C%20%20🌙%20Dark%20Mode&fontSize=14&fontColor=fff&animation=fadeIn" width="100%"/>
 </div>
 
 <br/>
@@ -144,6 +144,7 @@ Payments are handled via **GCash** 💙, making it seamless for Filipino buyers.
 ### 👑 Admin Panel
 
 - Dashboard with live stats
+- **Floating AI Assistant** — answers real-time Qs about revenue, matching discounts, pending orders & auctions exactly!
 - Manage projects — add, edit, delete, upload files
 - Approve or reject orders + view payment proofs
 - Create and manage auctions
@@ -238,6 +239,14 @@ The built-in support bot automatically handles common questions when the admin i
 
 > 🇵🇭 Bot uses **Philippine Standard Time (UTC+8)** for greetings — no more "Good morning" at midnight!
 
+### 🟢 Admin AI Assistant
+A separate **floating AI chatbot** is exclusively available to Admin users. It acts as an interactive dashboard that queries the SQLite database directly, returning real-time data on:
+- Global gross revenue & exact project sales figures 
+- Live views of project active discounts (Original vs Sale price + savings percentage)
+- Unresolved & pending order reports
+- Real-time auction bids & current top participants
+- General summaries of total user & project activity
+
 <br/>
 
 <div align="center">
@@ -295,6 +304,8 @@ pymarket/
     ├── my_orders.html          # Order history
     ├── chat.html               # Support chat + bot messages
     ├── profile.html            # User profile
+    ├── 404.html                # Custom "Page Not Found" layout
+    ├── 500.html                # Custom "Server Error" layout
     └── admin/                  # Admin panel templates
 ```
 

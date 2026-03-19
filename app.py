@@ -54,7 +54,7 @@ def _wants_json_error():
     accept = (request.headers.get('Accept') or '').lower()
     if request.is_json:
         return True
-    if request.path in ('/admin/ai', '/promo/check', '/notifications/count'):
+    if request.path in ('/admin/ai', '/promo/check', '/notifications/count', '/chat/widget'):
         return True
     return 'application/json' in accept and 'text/html' not in accept
 
@@ -1100,6 +1100,45 @@ def chat_general():
     return render_template('chat.html', messages=messages, order=None, title='General Support')
 
 
+@app.route('/chat/widget', methods=['GET', 'POST'])
+@login_required
+def chat_widget():
+    db = get_db()
+
+    if request.method == 'POST':
+        data = request.get_json(silent=True) or {}
+        msg = (data.get('message') or '').strip()
+        if not msg:
+            return jsonify({'ok': False, 'error': 'empty_message'}), 400
+
+        db.execute(
+            "INSERT INTO chats (user_id, order_id, is_admin_reply, message) VALUES (?,NULL,0,?)",
+            (session['user_id'], msg)
+        )
+        db.commit()
+        maybe_bot_reply(db, session['user_id'], msg, order_id=None)
+
+    messages = db.execute("""
+        SELECT c.*, u.username FROM chats c
+        JOIN users u ON c.user_id=u.id
+        WHERE c.order_id IS NULL AND c.user_id=?
+        ORDER BY c.created_at ASC
+    """, (session['user_id'],)).fetchall()
+
+    return jsonify({
+        'ok': True,
+        'messages': [
+            {
+                'message': m['message'],
+                'is_admin_reply': bool(m['is_admin_reply']),
+                'is_bot': bool(m['is_admin_reply']) and str(m['message']).startswith('🤖'),
+                'created_at': m['created_at'],
+            }
+            for m in messages
+        ]
+    })
+
+
 @app.route('/chat/order/<int:order_id>', methods=['GET', 'POST'])
 @login_required
 def chat_order(order_id):
@@ -1883,6 +1922,46 @@ def admin_ai():
             lines.append(f"• **{p['code']}** — {val} off | {uses} | {status}")
         return jsonify({'reply': '\n'.join(lines)})
 
+    # ── Total of all products incl VAT ──
+    if 'total of all product' in question or ('total' in question and ('product' in question or 'item' in question) and 'vat' in question):
+        all_projects = db.execute("SELECT * FROM projects WHERE is_active=1").fetchall()
+        total_orig = sum(p['price'] for p in all_projects)
+        total_with_vat_and_discounts = sum(calc_price(p)['total_price'] for p in all_projects)
+        lines = [
+            f"💰 **Total Value of All Listed Products**", "",
+            f"• Number of active projects: **{len(all_projects)}**",
+            f"• Total Base Price: **₱{total_orig:,.2f}**",
+            f"• **Grand Total (including active discounts & 5% VAT): ₱{total_with_vat_and_discounts:,.2f}**"
+        ]
+        return jsonify({'reply': '\n'.join(lines)})
+
+    # ── Total of all reserve ──
+    if 'total of all reserve' in question or 'total reserve' in question or 'total reserved' in question:
+        reserves = db.execute("""
+            SELECT p.title, p.price, u.username
+            FROM project_reservations r 
+            JOIN projects p ON r.project_id=p.id 
+            JOIN users u ON r.user_id=u.id
+            WHERE r.status='approved' AND NOT EXISTS (
+                SELECT 1 FROM orders o WHERE o.project_id = p.id AND o.status='approved'
+            )
+        """).fetchall()
+        if not reserves:
+            return jsonify({'reply': '🔖 There are currently **0** active reservations.'})
+        
+        total_reserve = sum(r['price'] for r in reserves)
+        total_reserve_vat = sum(calc_price(p)['total_price'] for p in reserves)
+        lines = [
+            f"🔖 **Total Active Reservations ({len(reserves)})**", "",
+            f"• Total Value (Base): **₱{total_reserve:,.2f}**",
+            f"• **Total Value (Including VAT): ₱{total_reserve_vat:,.2f}**", "",
+            "**Reserved Items:**"
+        ]
+        for r in reserves:
+            lines.append(f"  • {r['title']} (₱{r['price']:,.2f}) — by {r['username']}")
+        
+        return jsonify({'reply': '\n'.join(lines)})
+
     # ── Dashboard / General summary ──
     if any(k in question for k in ['summary', 'dashboard', 'overview', 'stats', 'report', 'lahat', 'all', 'hello', 'hi', 'help', 'ano', 'what']):
         s = get_stats()
@@ -1942,4 +2021,4 @@ def admin_ai():
 if __name__ == '__main__':
     with app.app_context():
         init_db()
-    app.run(debug=True)
+    app.run(debug=False)
