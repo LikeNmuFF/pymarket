@@ -9,5 +9,8 @@ if project_home not in sys.path:
 os.environ['FLASK_ENV'] = 'production'
 
 from app import app, init_db
-init_db()
+
+with app.app_context():
+    init_db()
+
 application = app

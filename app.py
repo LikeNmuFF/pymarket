@@ -344,6 +344,10 @@ MAIL_PASSWORD = 'smwqemlpykznlvxh'   # ← your Gmail App Password
 MAIL_FROM = 'PyMarket <noreply@pymarket.com>'
 
 
+with app.app_context():
+    init_db()
+
+
 def send_email(to, subject, body_html):
     if not MAIL_USERNAME or not MAIL_PASSWORD:
         return  # Email not configured, skip silently
@@ -1939,7 +1943,7 @@ def admin_ai():
     if 'total of all reserve' in question or 'total reserve' in question or 'total reserved' in question:
         reserves = db.execute("""
             SELECT p.title, p.price, u.username
-            FROM project_reservations r 
+            FROM reservations r 
             JOIN projects p ON r.project_id=p.id 
             JOIN users u ON r.user_id=u.id
             WHERE r.status='approved' AND NOT EXISTS (
