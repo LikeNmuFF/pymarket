@@ -442,6 +442,27 @@ def allowed_file(filename, allowed):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed
 
 
+def mask_username(username: str) -> str:
+    """Return a partially masked username to avoid revealing full identity."""
+    if not username:
+        return ''
+    s = str(username).strip()
+    if len(s) <= 1:
+        return '*'
+    if len(s) == 2:
+        return s[0] + '*'
+    return s[0] + '*' * (len(s) - 2) + s[-1]
+
+
+def mask_username_list(names):
+    """Mask a comma-separated string of usernames or an iterable of names."""
+    if not names:
+        return ''
+    if isinstance(names, (list, tuple)):
+        return [mask_username(n) for n in names]
+    return ', '.join(mask_username(n.strip()) for n in str(names).split(',') if n.strip())
+
+
 def gcash_qr_url(amount, note=''):
     data = f"Send PHP {amount} to {GCASH_NUMBER} ({GCASH_NAME}) via GCash. Ref: {note}"
     encoded = urllib.parse.quote(data)
@@ -495,7 +516,7 @@ def get_ended_auction_winner(db, project_id):
         return None  # Winner already paid, treat as normal sold-out
     result = dict(auction)
     result['winner_id'] = winner_bid['user_id']
-    result['winner_username'] = winner_bid['username']
+    result['winner_username'] = mask_username(winner_bid['username'])
     return result
 
 # ── Public ────────────────────────────────────────────────────────────────────
@@ -533,7 +554,13 @@ def index():
         query += " AND p.category=?"
         params.append(category)
     query += " ORDER BY p.created_at DESC"
-    projects = db.execute(query, params).fetchall()
+    projects_rows = db.execute(query, params).fetchall()
+    projects = []
+    for p in projects_rows:
+        d = dict(p)
+        d['buyer_names'] = mask_username_list(p['buyer_names'])
+        d['reserved_by'] = mask_username(p['reserved_by'])
+        projects.append(d)
     categories = db.execute(
         "SELECT DISTINCT category FROM projects WHERE is_active=1 AND category IS NOT NULL").fetchall()
     auction_rows = db.execute("""
@@ -567,11 +594,16 @@ def project_detail(pid):
     db.commit()
     screenshots = db.execute(
         "SELECT * FROM screenshots WHERE project_id=?", (pid,)).fetchall()
-    buyers = db.execute("""
+    buyers_rows = db.execute("""
         SELECT u.username, o.approved_at FROM orders o
         JOIN users u ON o.user_id=u.id
         WHERE o.project_id=? AND o.status='approved'
     """, (pid,)).fetchall()
+    buyers = []
+    for b in buyers_rows:
+        bd = dict(b)
+        bd['username'] = mask_username(b['username'])
+        buyers.append(bd)
     user_bought = False
     user_order = None
     user_review = None
@@ -588,11 +620,16 @@ def project_detail(pid):
     active_auction = get_active_auction(db, pid)
     ended_auction = get_ended_auction_winner(
         db, pid) if not active_auction else None
-    reviews = db.execute("""
+    reviews_rows = db.execute("""
         SELECT r.*, u.username, u.avatar FROM reviews r
         JOIN users u ON r.user_id=u.id
         WHERE r.project_id=? ORDER BY r.created_at DESC
     """, (pid,)).fetchall()
+    reviews = []
+    for r in reviews_rows:
+        rd = dict(r)
+        rd['username'] = mask_username(r['username'])
+        reviews.append(rd)
     avg_rating = db.execute(
         "SELECT AVG(rating) as avg, COUNT(*) as cnt FROM reviews WHERE project_id=?", (pid,)
     ).fetchone()
@@ -600,14 +637,18 @@ def project_detail(pid):
         "SELECT COUNT(*) as c FROM project_views WHERE project_id=?", (pid,)
     ).fetchone()['c']
     # Reservation info
-    reservation = db.execute("""
+    reservation_row = db.execute("""
         SELECT r.*, u.username FROM reservations r
         JOIN users u ON r.user_id=u.id
         WHERE r.project_id=?
     """, (pid,)).fetchone()
+    reservation = None
+    if reservation_row:
+        reservation = dict(reservation_row)
+        reservation['username'] = mask_username(reservation_row['username'])
     user_reservation = None
-    if session.get('user_id') and reservation:
-        if int(reservation['user_id']) == int(session['user_id']):
+    if session.get('user_id') and reservation_row:
+        if int(reservation_row['user_id']) == int(session['user_id']):
             user_reservation = reservation
     return render_template('project_detail.html', project=project,
                            screenshots=screenshots, buyers=buyers,
@@ -791,7 +832,7 @@ def buy(pid):
         reserver = db.execute(
             "SELECT username FROM users WHERE id=?", (reservation['user_id'],)).fetchone()
         flash(
-            f'This project is reserved by {reserver["username"]} and is not available for purchase.', 'error')
+            f'This project is reserved by {mask_username(reserver["username"])} and is not available for purchase.', 'error')
         return redirect(url_for('project_detail', pid=pid))
 
     # Handle ended auction — only winner can buy, at winning price
@@ -803,14 +844,14 @@ def buy(pid):
     )
     if ended_auction and not is_auction_winner:
         flash(
-            f'This project was won at auction by {ended_auction["winner_username"]}. Waiting for their payment.', 'error')
+            f'This project was won at auction by {mask_username(ended_auction["winner_username"])}. Waiting for their payment.', 'error')
         return redirect(url_for('project_detail', pid=pid))
 
     owner = db.execute(
         "SELECT o.*, u.username FROM orders o JOIN users u ON o.user_id=u.id WHERE o.project_id=? AND o.status='approved'",
         (pid,)).fetchone()
     if owner:
-        flash(f'Sorry, already purchased by {owner["username"]}.', 'error')
+        flash(f'Sorry, already purchased by {mask_username(owner["username"])}.', 'error')
         return redirect(url_for('project_detail', pid=pid))
     existing = db.execute(
         "SELECT * FROM orders WHERE user_id=? AND project_id=? AND status IN ('pending','approved')",
