@@ -63,7 +63,7 @@ def _wants_json_error():
 def not_found(error):
     if _wants_json_error():
         return jsonify({'error': 'not_found'}), 404
-    return render_template('404.html', path=request.path), 404
+    return render_template('error/404.html', path=request.path), 404
 
 
 @app.errorhandler(500)
@@ -76,7 +76,7 @@ def server_error(error):
 
     if _wants_json_error():
         return jsonify({'error': 'internal_server_error', 'error_id': error_id}), 500
-    return render_template('500.html', error_id=error_id, path=request.path), 500
+    return render_template('error/500.html', error_id=error_id, path=request.path), 500
 
 
 def init_db():
@@ -451,7 +451,12 @@ def mask_username(username: str) -> str:
         return '*'
     if len(s) == 2:
         return s[0] + '*'
-    return s[0] + '*' * (len(s) - 2) + s[-1]
+    # Use a gentler mask: shorter names keep 1-2 visible chars, longer names keep 3 on each side.
+    if len(s) <= 4:
+        return s[0] + '*' * (len(s) - 2) + s[-1]
+    if len(s) <= 8:
+        return s[:2] + '*' * (len(s) - 4) + s[-2:]
+    return s[:3] + '*' * (len(s) - 6) + s[-3:]
 
 
 def mask_username_list(names):
